@@ -1,0 +1,59 @@
+Determining if the pthread_create exist failed with the following output:
+Change Dir: /vagrant_data/catkin_ws/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_d858f/fast"
+make: Warning: File 'Makefile' has modification time 0.11 s in the future
+/usr/bin/make -f CMakeFiles/cmTC_d858f.dir/build.make CMakeFiles/cmTC_d858f.dir/build
+make[1]: Entering directory '/vagrant_data/catkin_ws/build/CMakeFiles/CMakeTmp'
+make[1]: Warning: File 'CMakeFiles/cmTC_d858f.dir/flags.make' has modification time 0.1 s in the future
+Building C object CMakeFiles/cmTC_d858f.dir/CheckSymbolExists.c.o
+/usr/bin/cc     -o CMakeFiles/cmTC_d858f.dir/CheckSymbolExists.c.o   -c /vagrant_data/catkin_ws/build/CMakeFiles/CMakeTmp/CheckSymbolExists.c
+Linking C executable cmTC_d858f
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d858f.dir/link.txt --verbose=1
+/usr/bin/cc       CMakeFiles/cmTC_d858f.dir/CheckSymbolExists.c.o  -o cmTC_d858f -rdynamic 
+CMakeFiles/cmTC_d858f.dir/CheckSymbolExists.c.o: In function `main':
+CheckSymbolExists.c:(.text+0x16): undefined reference to `pthread_create'
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_d858f.dir/build.make:97: recipe for target 'cmTC_d858f' failed
+make[1]: *** [cmTC_d858f] Error 1
+make[1]: Leaving directory '/vagrant_data/catkin_ws/build/CMakeFiles/CMakeTmp'
+Makefile:126: recipe for target 'cmTC_d858f/fast' failed
+make: *** [cmTC_d858f/fast] Error 2
+
+File /vagrant_data/catkin_ws/build/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
+/* */
+#include <pthread.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef pthread_create
+  return ((int*)(&pthread_create))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+
+Determining if the function pthread_create exists in the pthreads failed with the following output:
+Change Dir: /vagrant_data/catkin_ws/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_021fe/fast"
+make: Warning: File 'Makefile' has modification time 0.83 s in the future
+/usr/bin/make -f CMakeFiles/cmTC_021fe.dir/build.make CMakeFiles/cmTC_021fe.dir/build
+make[1]: Entering directory '/vagrant_data/catkin_ws/build/CMakeFiles/CMakeTmp'
+make[1]: Warning: File 'CMakeFiles/cmTC_021fe.dir/flags.make' has modification time 0.82 s in the future
+Building C object CMakeFiles/cmTC_021fe.dir/CheckFunctionExists.c.o
+/usr/bin/cc    -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTC_021fe.dir/CheckFunctionExists.c.o   -c /usr/share/cmake-3.5/Modules/CheckFunctionExists.c
+Linking C executable cmTC_021fe
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_021fe.dir/link.txt --verbose=1
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create    CMakeFiles/cmTC_021fe.dir/CheckFunctionExists.c.o  -o cmTC_021fe -rdynamic -lpthreads 
+/usr/bin/ld: cannot find -lpthreads
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_021fe.dir/build.make:97: recipe for target 'cmTC_021fe' failed
+make[1]: *** [cmTC_021fe] Error 1
+make[1]: Leaving directory '/vagrant_data/catkin_ws/build/CMakeFiles/CMakeTmp'
+Makefile:126: recipe for target 'cmTC_021fe/fast' failed
+make: *** [cmTC_021fe/fast] Error 2
+
+

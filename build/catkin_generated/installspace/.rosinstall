@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /vagrant_data/catkin_ws/install/setup.sh
