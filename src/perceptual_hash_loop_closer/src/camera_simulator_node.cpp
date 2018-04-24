@@ -6,21 +6,20 @@
 #include <boost/foreach.hpp>
 #include <fstream>
 
-using namespace boost::filesystem;
 using namespace std;
 using namespace cv;
 using namespace ros;
 
 ros::Time ts;
 
-int get_all(const path &root, const string &ext, vector<path> &ret) {
+int get_all(const boost::filesystem::path &root, const string &ext, vector<boost::filesystem::path> &ret) {
     int count = 0;
-    if (!exists(root) || !is_directory(root) || is_empty(root))
+    if (!exists(root) || !is_directory(root) || boost::filesystem::is_empty(root))
         return -1;
-    recursive_directory_iterator it(root);
-    recursive_directory_iterator endit;
+    boost::filesystem::recursive_directory_iterator it(root);
+    boost::filesystem::recursive_directory_iterator endit;
     while (it != endit) {
-        if (is_regular_file(*it) && it->path().extension() == ext) {
+        if (boost::filesystem::is_regular_file(*it) && it->path().extension() == ext) {
             count++;
             ret.push_back(it->path());
         }
@@ -45,8 +44,8 @@ void newTs(const std_msgs::Time time) {
  */
 int main(int argc, char **argv) {
     int loopRate;
-    vector<path> imageNames;
-    vector<path>::const_iterator iter;
+    vector<boost::filesystem::path> imageNames;
+    vector<boost::filesystem::path>::const_iterator iter;
     cv_bridge::CvImage cv_image;
     sensor_msgs::Image ros_image;
 
