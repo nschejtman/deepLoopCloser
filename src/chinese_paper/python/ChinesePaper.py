@@ -10,7 +10,8 @@ reader = BufferedFileReader("/Users/nicolas/projects/deepLoopCloser/Dataset/data
 parser = InputParser(n_keypoints, patch_size)
 da = DAVariant(n_keypoints=n_keypoints, patch_size=patch_size)
 
-for batch in reader:
-    cv_batch = map(lambda file: cv2.imread(file, cv2.IMREAD_GRAYSCALE), batch)
+for i, batch in enumerate(reader):
+    print("Started batch: " + str(i))
+    cv_batch = list(map(lambda file: cv2.imread(file, cv2.IMREAD_GRAYSCALE), batch))
     parsed_batch = parser.calculate_all(cv_batch)
-    da.fit(parsed_batch)
+    da.fit(parsed_batch, warm_start=True)

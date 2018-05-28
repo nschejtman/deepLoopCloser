@@ -63,7 +63,7 @@ class InputParser:
         return normalized_vector_patches
 
     def calculate_all(self, images):
-        batch = np.empty((self.n_patches, self.patch_size ** 2, len(images)))
+        batch = np.empty((len(images), self.n_patches, self.patch_size ** 2))
         for i, image in enumerate(images):
-            batch[0, 0, i] = self.calculate(image)
+            batch[i] = self.calculate(image)
         return batch
