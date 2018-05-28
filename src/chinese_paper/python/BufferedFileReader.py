@@ -1,4 +1,5 @@
 import os
+import math
 
 
 class BufferedFileReader:
@@ -17,3 +18,6 @@ class BufferedFileReader:
     def __next__(self):
         self.idx += self.batch_size
         return self.files[self.idx - self.batch_size: min(self.idx, len(self.files) - 1)]
+
+    def __len__(self):
+        return math.ceil(len(self.files) / self.batch_size)

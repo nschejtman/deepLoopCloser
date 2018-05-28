@@ -109,7 +109,8 @@ class DAVariant:
         train_fn = optimizer.minimize(self.loss)
         for step in range(self.n_epochs):
             self.sess.run(train_fn, feed_dict={self.x_placeholder: x})
-            print("Loss: " + str(self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
+            progress_str = "Epoch: %d/%d Loss: %s"
+            print(progress_str % (step + 1, self.n_epochs, self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
         self.tf_saver.save(self.sess, self.save_path + "/davariant")
 
     def transform(self, x):
