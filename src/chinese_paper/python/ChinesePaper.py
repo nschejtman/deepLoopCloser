@@ -4,7 +4,7 @@ from BufferedFileReader import BufferedFileReader
 import cv2
 from ETAClock import ETAClock
 
-n_keypoints = 30
+n_keypoints = 15  # 30
 patch_size = 40
 
 reader = BufferedFileReader("/Users/nicolas/projects/deepLoopCloser/Dataset/dataset_1", ".ppm", 5)

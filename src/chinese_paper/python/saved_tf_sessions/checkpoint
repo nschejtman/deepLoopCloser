@@ -1,0 +1,2 @@
+model_checkpoint_path: "davariant"
+all_model_checkpoint_paths: "davariant"
