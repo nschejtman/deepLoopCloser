@@ -22,5 +22,5 @@ for i, batch in enumerate(reader):
     print("ETA: " + str(clock.get_eta()))
     parsed_batch = np.genfromtxt(batch[0], delimiter=',')
     parsed_batch = parsed_batch.reshape(batch_size, n_keypoints, patch_size ** 2)
-    da.fit(parsed_batch, warm_start=True)
+    da.fit(parsed_batch, warm_start=True, with_device_info=True)
     clock.lap()

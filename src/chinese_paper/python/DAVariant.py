@@ -89,10 +89,16 @@ class DAVariant:
 
         return tf.multiply(tf_zeros_mask, x) + tf_ones_mask
 
-    def fit(self, x, warm_start=False):
-        with tf.Session() as self.sess:
-            self._init_model_and_utils(warm_start)
-            self._train_model(x)
+    def fit(self, x, warm_start=False, with_device_info=False):
+        if with_device_info:
+            with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as self.sess:
+                self._init_model_and_utils(warm_start)
+                self._train_model(x)
+        else:
+            with tf.Session() as self.sess:
+                self._init_model_and_utils(warm_start)
+                self._train_model(x)
+
 
     def _init_model_and_utils(self, warm_start):
         # self.tf_merged_summaries = tf.summary.merge_all() TODO
