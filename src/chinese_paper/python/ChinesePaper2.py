@@ -9,7 +9,7 @@ patch_size = 40
 n_batches = 111
 batch_size = 5
 
-dataset_format = "/Users/nicolas/projects/deepLoopCloser/Dataset/%s_parsed/[n=%d][p=%d]/[batches=%d]"
+dataset_format = "/home/ubuntu/deepLoopCloser/Dataset/%s_parsed/[n=%d][p=%d]/[batches=%d]"
 dataset_dir = dataset_format % (dataset, n_keypoints, patch_size, n_batches)
 
 da = DAVariant(n_keypoints=n_keypoints, patch_size=patch_size)
@@ -22,5 +22,5 @@ for i, batch in enumerate(reader):
     print("ETA: " + str(clock.get_eta()))
     parsed_batch = np.genfromtxt(batch[0], delimiter=',')
     parsed_batch = parsed_batch.reshape(batch_size, n_keypoints, patch_size ** 2)
-    da.fit(parsed_batch, warm_start=True, with_device_info=True)
+    da.fit(parsed_batch, warm_start=True)
     clock.lap()
