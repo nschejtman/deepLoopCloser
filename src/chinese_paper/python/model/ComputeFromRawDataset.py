@@ -1,5 +1,3 @@
-import cv2
-
 from input.CvInputParser import InputParser
 from model.DenoisingAutoencoderVariant import DAVariant
 from utils.BufferedFileReader import BufferedFileReader
@@ -15,6 +13,5 @@ n_batches = len(reader)
 
 for i, batch in enumerate(reader):
     print("Started batch: " + str(i) + "/" + str(n_batches))
-    cv_batch = list(map(lambda file: cv2.imread(file, cv2.IMREAD_GRAYSCALE), batch))
-    parsed_batch = parser.calculate_all(cv_batch)
+    parsed_batch = parser.calculate__all_from_path(batch)
     da.fit(parsed_batch, warm_start=True)

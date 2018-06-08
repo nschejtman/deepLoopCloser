@@ -2,6 +2,39 @@ import cv2
 import numpy as np
 import math
 
+"""
+This class parses image inputs according to the algorithm proposed in the paper using OpenCV 3.4.1
+"""
+
+
+class InputParser:
+    def __init__(self, n_patches, patch_size):
+        self.n_patches = n_patches
+        self.patch_size = patch_size
+
+    def calculate(self, image):
+        key_points = get_top_n_key_points(image, self.n_patches)
+        vector_patches = get_vectorized_patches_from_key_points(image, key_points, self.patch_size)
+        normalized_vector_patches = vector_patches / 255.0
+        return normalized_vector_patches
+
+    def calculate_all(self, images, verbose=False):
+        n_images = len(images)
+        batch = np.empty((n_images, self.n_patches, self.patch_size ** 2))
+        for i, image in enumerate(images):
+            if verbose:
+                print("Processing image %d/%d" % (i + 1, n_images))
+            batch[i] = self.calculate(image)
+        return batch
+
+    def calculate_from_path(self, image_path):
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        return self.calculate(image)
+
+    def calculate__all_from_path(self, image_path_array):
+        images = list(map(lambda file: cv2.imread(file, cv2.IMREAD_GRAYSCALE), image_path_array))
+        return self.calculate_all(images)
+
 
 def get_top_n_key_points(img, n):
     feature_detector = cv2.xfeatures2d.SURF_create()
@@ -49,24 +82,3 @@ def get_vectorized_patches_from_key_points(img, key_points, patch_size):
         vector_patches[i] = vector_patch
 
     return vector_patches
-
-
-class InputParser:
-    def __init__(self, n_patches, patch_size):
-        self.n_patches = n_patches
-        self.patch_size = patch_size
-
-    def calculate(self, image):
-        key_points = get_top_n_key_points(image, self.n_patches)
-        vector_patches = get_vectorized_patches_from_key_points(image, key_points, self.patch_size)
-        normalized_vector_patches = vector_patches / 255.0
-        return normalized_vector_patches
-
-    def calculate_all(self, images, verbose=False):
-        n_images = len(images)
-        batch = np.empty((n_images, self.n_patches, self.patch_size ** 2))
-        for i, image in enumerate(images):
-            if verbose:
-                print ("Processing image %d/%d" % (i + 1, n_images))
-            batch[i] = self.calculate(image)
-        return batch
