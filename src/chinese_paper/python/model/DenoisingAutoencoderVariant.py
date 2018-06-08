@@ -42,7 +42,7 @@ class DAVariant:
 
     def _build_model(self):
         # Build the computation graph
-        self.x_placeholder = tf.placeholder(tf.float64, shape=[self.nb, self.n, self.s ** 2])
+        self.x_placeholder = tf.placeholder(tf.float64, shape=[self.nb, self.n, self.s ** 2]) # TODO remove the reshape operation to make the DA stackable
         self.x_extended = tf.reshape(self.x_placeholder, [self.nb * self.n, self.s ** 2])  # Reshape to simplify graph
         self.x_corr = self._corrupt(self.x_extended, self.c)
         w0 = tf.Variable(tf.random_normal([self.s ** 2, self.nf], dtype=tf.float64))

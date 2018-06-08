@@ -13,12 +13,23 @@ class InputParser:
         self.patch_size = patch_size
 
     def calculate(self, image):
+        """
+        Parses a single image
+        :param image: image in cv::Mat format
+        :return: array of shape ()
+        """
         key_points = get_top_n_key_points(image, self.n_patches)
         vector_patches = get_vectorized_patches_from_key_points(image, key_points, self.patch_size)
         normalized_vector_patches = vector_patches / 255.0
         return normalized_vector_patches
 
     def calculate_all(self, images, verbose=False):
+        """
+        Parses a batch of images
+        :param images: array of images in cv::Mat format
+        :param verbose:
+        :return:
+        """
         n_images = len(images)
         batch = np.empty((n_images, self.n_patches, self.patch_size ** 2))
         for i, image in enumerate(images):
@@ -28,15 +39,31 @@ class InputParser:
         return batch
 
     def calculate_from_path(self, image_path):
+        """
+        Parses a single image from its path
+        :param image_path: path to image string
+        :return:
+        """
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         return self.calculate(image)
 
     def calculate__all_from_path(self, image_path_array):
+        """
+        Parses a batch of images from their respective path
+        :param image_path_array: array of image paths
+        :return:
+        """
         images = list(map(lambda file: cv2.imread(file, cv2.IMREAD_GRAYSCALE), image_path_array))
         return self.calculate_all(images)
 
 
 def get_top_n_key_points(img, n):
+    """
+    Gets the top n SURF keypoints from an image in descending feature response order
+    :param img: image in cv::Mat format
+    :param n: number of desired keypoints
+    :return: array of n keypoints in descending feature response order
+    """
     feature_detector = cv2.xfeatures2d.SURF_create()
     key_points = feature_detector.detect(img, None)
     key_points.sort(key=lambda kp: -kp.response)  # Sort in decreasing feature response order
@@ -69,6 +96,16 @@ def get_2d_boundaries(img_shape, coordinates, patch_size):
 
 
 def get_vectorized_patches_from_key_points(img, key_points, patch_size):
+    """
+    For every key point, get a squared patch of patch_size x patch_size centered around the key point center, reshape
+    it to get a vector of dimension 1 x patch_size^2 and stack it with the other vectorized patches to form a matrix of
+    dimension number_of_keypoints x patch_size^2
+
+    :param img: image in cv::Mat format
+    :param key_points: array of cv::Keypoints
+    :param patch_size: squared patch dimension (int)
+    :return: numpy array of shape (number of keypoints, patch_size^2)
+    """
     mapper = np.vectorize(lambda kp: (round(kp.pt[0]), round(kp.pt[1])))
     coordinates = np.array(mapper(key_points)).transpose()
 
