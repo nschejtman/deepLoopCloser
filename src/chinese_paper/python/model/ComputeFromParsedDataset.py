@@ -1,21 +1,22 @@
 import numpy as np
 
 from model.DenoisingAutoencoderVariant import DAVariant
-from utils.BufferedFileReader import BufferedFileReader
+from utils.BufferedFileReader import BufferedReader
 
-dataset = "dataset_1"
+dataset = "outdoor_kennedylong"
 n_keypoints = 30
 patch_size = 40
-n_batches = 111
-batch_size = 5
+n_batches = 118
+batch_size = 9
 
-dataset_format = "/home/ubuntu/deepLoopCloser/Dataset/%s_parsed/[n=%d][p=%d]/[batches=%d]"
+dataset_format = "../../../../Dataset/%s_parsed/[n=%d][p=%d]/[batches=%d]"
 dataset_dir = dataset_format % (dataset, n_keypoints, patch_size, n_batches)
 
 da = DAVariant(n_keypoints=n_keypoints, patch_size=patch_size)
-reader = BufferedFileReader(dataset_dir, ".csv", 1)
+reader = BufferedReader(dataset_dir, ".csv", 1)
 
 for i, batch in enumerate(reader):
     print("Started batch: " + str(i) + "/" + str(n_batches))
     parsed_batch = np.genfromtxt(batch[0], delimiter=',')
     parsed_batch = parsed_batch.reshape(batch_size, n_keypoints, patch_size ** 2)
+    da.fit(parsed_batch, warm_start=True)

@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
 import math
+from pathlib import Path
 
 """
 This class parses image inputs according to the algorithm proposed in the paper using OpenCV 3.4.1
 """
 
 
-class InputParser:
+class Parser:
     def __init__(self, n_patches, patch_size):
         self.n_patches = n_patches
         self.patch_size = patch_size
@@ -44,7 +45,8 @@ class InputParser:
         :param image_path: path to image string
         :return:
         """
-        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        resolved_path = str(Path(image_path).resolve())
+        image = cv2.imread(resolved_path, cv2.IMREAD_GRAYSCALE)
         return self.calculate(image)
 
     def calculate__all_from_path(self, image_path_array):

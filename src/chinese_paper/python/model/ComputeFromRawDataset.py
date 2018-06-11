@@ -1,12 +1,12 @@
-from input.CvInputParser import InputParser
+from input.CvInputParser import Parser
 from model.DenoisingAutoencoderVariant import DAVariant
-from utils.BufferedFileReader import BufferedFileReader
+from utils.BufferedFileReader import BufferedReader
 
 n_keypoints = 30
 patch_size = 40
 
-reader = BufferedFileReader("/Users/nicolas/projects/deepLoopCloser/Dataset/dataset_1", ".ppm", 5)
-parser = InputParser(n_keypoints, patch_size)
+reader = BufferedReader("../../../../Dataset/outdoor_kennedylong", ".ppm", 9)
+parser = Parser(n_keypoints, patch_size)
 da = DAVariant(n_keypoints=n_keypoints, patch_size=patch_size)
 
 n_batches = len(reader)

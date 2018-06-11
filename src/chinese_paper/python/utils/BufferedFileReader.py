@@ -1,13 +1,14 @@
 import os
 import math
+from pathlib import Path
 
 
-class BufferedFileReader:
+class BufferedReader:
     def __init__(self, directory, extension, batch_size):
         self.batch_size = batch_size
         self.idx = 0
-
-        all_files = os.listdir(directory)
+        self.directory = str(Path(directory).resolve())
+        all_files = os.listdir(self.directory)
         self.files = list(filter(lambda f: os.path.splitext(f)[1] == extension, all_files))
         self.files = list(map(lambda f: directory + "/" + f, self.files))
         self.files.sort()
