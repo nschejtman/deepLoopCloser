@@ -134,7 +134,9 @@ class DAVariant:
 
             progress_str = "Epoch: %d/%d Loss: %s"
             print(progress_str % (step + 1, self.n_epochs, self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
+        self.summary_writer.close()
         self.tf_saver.save(self.sess, self.save_path + "/davariant")
+
 
     def transform(self, x):
         with self.sess as sess:
