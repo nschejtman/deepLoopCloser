@@ -46,9 +46,8 @@ class DAVariant:
 
     def _build_model(self):
         # Build the computation graph
-        self.x_placeholder = tf.placeholder(tf.float64, shape=[self.nb, self.n, self.s ** 2]) # TODO remove the reshape operation to make the DA stackable
-        self.x_extended = tf.reshape(self.x_placeholder, [self.nb * self.n, self.s ** 2])  # Reshape to simplify graph
-        self.x_corr = self._corrupt(self.x_extended, self.c)
+        self.x_placeholder = tf.placeholder(tf.float64, shape=[self.nb * self.n, self.s ** 2])
+        self.x_corr = self._corrupt(self.x_placeholder, self.c)
         w0 = tf.Variable(tf.random_normal([self.s ** 2, self.nf], dtype=tf.float64))
         b0 = tf.Variable(tf.zeros([self.nf], dtype=tf.float64))
         self.h = tf.nn.sigmoid(self.x_corr @ w0 + b0)
@@ -58,7 +57,7 @@ class DAVariant:
 
         # Build the loss function
         # Average Cross entropy
-        cd = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.x_extended, logits=y))
+        cd = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.x_placeholder, logits=y))
         # Sparsity constraint
         cs = tf.reduce_mean(tf.norm(self.h - self.sh, axis=1, ord=1))
         # Consecutive constraint

@@ -9,14 +9,13 @@ patch_size = 40
 n_batches = 118
 batch_size = 9
 
-dataset_format = "../../../../Dataset/%s_parsed/[n=%d][p=%d]/[batches=%d]"
+dataset_format = "../../../Dataset/%s_parsed/[n=%d][p=%d]/[batches=%d]"
 dataset_dir = dataset_format % (dataset, n_keypoints, patch_size, n_batches)
 
-da = DAVariant(n_keypoints=n_keypoints, patch_size=patch_size)
+da = DAVariant(n_keypoints=n_keypoints, patch_size=patch_size, n_consecutive_frames=9)
 reader = BufferedReader(dataset_dir, ".csv", 1)
 
 for i, batch in enumerate(reader):
     print("Started batch: " + str(i) + "/" + str(n_batches))
     parsed_batch = np.genfromtxt(batch[0], delimiter=',')
-    parsed_batch = parsed_batch.reshape(batch_size, n_keypoints, patch_size ** 2)
     da.fit(parsed_batch, warm_start=True)

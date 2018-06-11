@@ -37,7 +37,7 @@ class Parser:
             if verbose:
                 print("Processing image %d/%d" % (i + 1, n_images))
             batch[i] = self.calculate(image)
-        return batch
+        return batch.reshape(n_images * self.n_patches, self.patch_size ** 2)
 
     def calculate_from_path(self, image_path):
         """
