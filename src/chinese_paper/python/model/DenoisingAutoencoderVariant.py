@@ -33,10 +33,14 @@ class DAVariant:
 
         self.sess = None
         self.tf_saver = None
+        self.summary_writer = None
 
         self.save_path = "./saved_tf_sessions"
+        self.log_path = "./log"
         if not os.path.isdir(self.save_path):
             os.mkdir(self.save_path)
+        if not os.path.isdir(self.save_path):
+            os.mkdir(self.log_path)
 
         self._build_model()
 
@@ -64,6 +68,14 @@ class DAVariant:
         norm = tf.norm(frames_i - frames_i_plus_1, axis=[1, 2], ord='euclidean')
         cc = tf.reduce_mean(norm, axis=0)
         self.loss = cd + self.beta * cs + self.gamma * cc
+
+        # Add summary ops to collect data
+        tf.summary.histogram("w0", w0)
+        tf.summary.histogram("b0", b0)
+        tf.summary.histogram("w1", w1)
+        tf.summary.histogram("b1", b1)
+        tf.summary.scalar("loss", self.loss)
+        self.summary = tf.summary.merge_all()
 
 
     @staticmethod
@@ -101,14 +113,14 @@ class DAVariant:
 
 
     def _init_model_and_utils(self, warm_start):
-        # self.tf_merged_summaries = tf.summary.merge_all() TODO
         init = tf.global_variables_initializer()
         self.tf_saver = tf.train.Saver()
+        self.summary_writer = tf.summary.FileWriter(self.log_path, graph=tf.get_default_graph())
         self.sess.run(init)
 
         if warm_start and os.path.exists(self.save_path + "/davariant"):
             self.tf_saver.restore(self.sess, self.save_path + "/davariant")
-            # self.tf_summary_writer = tf.train.SummaryWriter(self.tf_summary_dir, self.tf_session.graph_def) TODO
+
 
     def _train_model(self, x):
         # Declare the optimizer
@@ -116,6 +128,11 @@ class DAVariant:
         train_fn = optimizer.minimize(self.loss)
         for step in range(self.n_epochs):
             self.sess.run(train_fn, feed_dict={self.x_placeholder: x})
+
+            # Write logs for each iteration
+            summary_str = self.sess.run(self.summary, feed_dict={self.x_placeholder: x})
+            self.summary_writer.add_summary(summary_str)
+
             progress_str = "Epoch: %d/%d Loss: %s"
             print(progress_str % (step + 1, self.n_epochs, self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
         self.tf_saver.save(self.sess, self.save_path + "/davariant")
