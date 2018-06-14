@@ -4,3 +4,4 @@ build
 build/catkin build/catkin_generated build/CATKIN_IGNORE build/catkin_make.cache build/CMakeCache.txt build/CMakeFiles build/cmake_install.cmake build/CTestTestfile.cmake build/gtest build/Makefile build/perceptual_hash_loop_closer build/test_results
 __pycache__
 /Dataset/*.csv
+.pytest_cache
