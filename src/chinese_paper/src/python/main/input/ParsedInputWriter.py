@@ -9,7 +9,7 @@ class Writer:
         n_batches = len(reader)
         for i, batch in enumerate(reader):
             print("Processing %d/%d" % (i + 1, n_batches))
-            parsed_batch = np.array(parser.calculate__all_from_path(batch))
+            parsed_batch = np.array(parser.calculate_all_from_path(batch))
             save_dir = Writer._init_save_dirs(n_batches, parser, reader)
             save_file = "%s/[batch=%s].csv" % (save_dir, Writer._batch_file_number_string(n_batches, i))
             np.savetxt(save_file, parsed_batch, delimiter=",")

@@ -14,5 +14,5 @@ n_batches = len(reader)
 
 for i, batch in enumerate(reader):
     print("Started batch: " + str(i) + "/" + str(n_batches))
-    parsed_batch = parser.calculate__all_from_path(batch)
+    parsed_batch = parser.calculate_all_from_path(batch)
     da.fit(parsed_batch, warm_start=True)
