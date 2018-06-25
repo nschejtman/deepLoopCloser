@@ -9,10 +9,10 @@ patch_size = 40
 n_batches = 118
 batch_size = 9
 
-dataset_format = "../../../Dataset/%s_parsed/[n=%d][p=%d]/[batches=%d]"
+dataset_format = "../../../../../Dataset/%s_parsed/[n=%d][p=%d]/[batches=%d]"
 dataset_dir = dataset_format % (dataset, n_keypoints, patch_size, n_batches)
 
-da = DAVariant(n_keypoints=n_keypoints, patch_size=patch_size, n_consecutive_frames=9)
+da = DAVariant(0, n_keypoints=n_keypoints, patch_size=patch_size, n_consecutive_frames=9)
 reader = BufferedReader(dataset_dir, ".csv", 1)
 
 for i, batch in enumerate(reader):

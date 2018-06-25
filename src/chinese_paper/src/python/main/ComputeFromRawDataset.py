@@ -6,9 +6,9 @@ n_keypoints = 30
 patch_size = 40
 batch_size = 9
 
-reader = BufferedReader("../../../Dataset/outdoor_kennedylong", ".ppm", batch_size)
+reader = BufferedReader("../../../../../Dataset/outdoor_kennedylong", ".ppm", batch_size)
 parser = Parser(n_keypoints, patch_size)
-da = DAVariant(n_keypoints=n_keypoints, patch_size=patch_size, n_consecutive_frames=batch_size)
+da = DAVariant(0, n_keypoints=n_keypoints, patch_size=patch_size, n_consecutive_frames=batch_size)
 
 n_batches = len(reader)
 
