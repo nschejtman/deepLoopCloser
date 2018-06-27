@@ -1,19 +1,47 @@
 import os
-from pathlib2 import Path
+
 import numpy as np
 import tensorflow as tf
+from pathlib2 import Path
+
+defaults = {
+    'layer_n': 0,
+    'keypoints': 30,
+    'patch_size': 41,
+    'batch_size': 5,
+    'hidden_units': 2500,
+    'corruption_level': 0.3,
+    'sparse_penalty': 1,
+    'sparse_level': 0.05,
+    'consecutive_penalty': 0.2,
+    'learning_rate': 0.1,
+    'epochs': 100
+}
 
 
 class DAVariant:
-    def __init__(self, layer_n, n_keypoints=30, patch_size=40, n_consecutive_frames=5, hidden_layer_dimension=2500,
-                 corruption_level=0.3, sparse_penalty=1, sparse_level=0.05, consecutive_penalty=0.2, learning_rate=0.1,
-                 epochs=100):
+    @staticmethod
+    def from_dict(conf):
+        return DAVariant(conf['layer_n'], keypoints=conf['keypoints'], patch_size=conf['patch_size'],
+                         batch_size=conf['batch_size'],
+                         hidden_units=conf['hidden_units'],
+                         corruption_level=conf['corruption_level'], sparse_penalty=conf['sparse_penalty'],
+                         sparse_level=conf['sparse_level'],
+                         consecutive_penalty=conf['consecutive_penalty'], learning_rate=conf['learning_rate'],
+                         epochs=conf['epochs'])
+
+    def __init__(self, layer_n, keypoints=defaults['keypoints'], patch_size=defaults['patch_size'],
+                 batch_size=defaults['batch_size'], hidden_units=defaults['hidden_units'],
+                 corruption_level=defaults['corruption_level'], sparse_penalty=defaults['sparse_penalty'],
+                 sparse_level=defaults['sparse_level'],
+                 consecutive_penalty=defaults['consecutive_penalty'], learning_rate=defaults['learning_rate'],
+                 epochs=defaults['epochs']):
         """
         Model parameters
-        :param n_keypoints:
+        :param keypoints:
         :param patch_size:
-        :param n_consecutive_frames:
-        :param hidden_layer_dimension:
+        :param batch_size:
+        :param hidden_units:
         :param corruption_level:
         :param sparse_penalty:
         :param sparse_level:
@@ -21,8 +49,8 @@ class DAVariant:
         :param learning_rate:
         :param epochs:
         """
-        self._set_parameters(layer_n, consecutive_penalty, corruption_level, hidden_layer_dimension, learning_rate,
-                             n_consecutive_frames, epochs, n_keypoints, patch_size, sparse_level,
+        self._set_parameters(layer_n, consecutive_penalty, corruption_level, hidden_units, learning_rate,
+                             batch_size, epochs, keypoints, patch_size, sparse_level,
                              sparse_penalty)
 
         self._set_utilities()
@@ -41,21 +69,19 @@ class DAVariant:
         self.log_path = "./log"
         Path(self.log_path).mkdir(parents=True, exist_ok=True)
 
-
-
     def _set_parameters(self, layer_n, consecutive_penalty, corruption_level, hidden_layer_dimension, learning_rate,
-                        n_consecutive_frames, n_epochs, n_keypoints, patch_size, sparse_level, sparse_penalty):
+                        batch_size, epochs, keypoints, patch_size, sparse_level, sparse_penalty):
         self.layer_n = layer_n
-        self.n = n_keypoints
+        self.n = keypoints
         self.s = patch_size
-        self.nb = n_consecutive_frames
+        self.nb = batch_size
         self.nf = hidden_layer_dimension
         self.c = corruption_level
         self.beta = sparse_penalty
         self.sh = sparse_level
         self.gamma = consecutive_penalty
         self.eta = learning_rate
-        self.n_epochs = n_epochs
+        self.epochs = epochs
 
     def _build_model(self):
         # Build the computation graph
@@ -137,7 +163,7 @@ class DAVariant:
         optimizer = tf.train.GradientDescentOptimizer(self.eta)
         train_fn = optimizer.minimize(self.loss)
         print(self.sess.run(self.w0)[0, 0])
-        for step in range(self.n_epochs):
+        for step in range(self.epochs):
             self.sess.run(train_fn, feed_dict={self.x_placeholder: x})
 
             # Write logs for each iteration
@@ -146,7 +172,7 @@ class DAVariant:
                 self.summary_writer.add_summary(summary_str)
 
             progress_str = "Epoch: %d/%d Loss: %s"
-            print(progress_str % (step + 1, self.n_epochs, self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
+            print(progress_str % (step + 1, self.epochs, self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
         print(self.sess.run(self.w0)[0, 0])
         self.summary_writer.close()
         self.checkpoint_file2 = self.tf_saver.save(self.sess, self.checkpoint_file)
