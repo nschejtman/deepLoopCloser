@@ -62,8 +62,8 @@ class DAVariant:
         self.tf_saver = None
         self.summary_writer = None
 
-        self.checkpoint_dir = str(Path("saved_tf_sessions/layer[%d]" % self.layer_n).resolve())
-        self.checkpoint_file = "%s/checkpoint-file" % self.checkpoint_dir
+        self.checkpoint_dir = str(Path("saved_tf_sessions/layer_%d_" % self.layer_n).resolve())
+        self.checkpoint_file = "%s/checkpoint_file" % self.checkpoint_dir
         Path(self.checkpoint_dir).mkdir(parents=True, exist_ok=True)
 
         self.log_path = "./log"
@@ -153,7 +153,7 @@ class DAVariant:
         self.tf_saver = tf.train.Saver(save_relative_paths=True)
 
         if warm_start and len(os.listdir(self.checkpoint_dir)) > 0:
-            self.tf_saver.restore(self.sess, self.checkpoint_file)
+            self.tf_saver.restore(self.sess, tf.train.latest_checkpoint(self.checkpoint_dir))
         else:
             init_op = tf.global_variables_initializer()
             self.sess.run(init_op)
@@ -162,7 +162,6 @@ class DAVariant:
         # Declare the optimizer
         optimizer = tf.train.GradientDescentOptimizer(self.eta)
         train_fn = optimizer.minimize(self.loss)
-        print(self.sess.run(self.w0)[0, 0])
         for step in range(self.epochs):
             self.sess.run(train_fn, feed_dict={self.x_placeholder: x})
 
@@ -175,7 +174,7 @@ class DAVariant:
             print(progress_str % (step + 1, self.epochs, self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
         print(self.sess.run(self.w0)[0, 0])
         self.summary_writer.close()
-        self.checkpoint_file2 = self.tf_saver.save(self.sess, self.checkpoint_file)
+        self.tf_saver.save(self.sess, self.checkpoint_file)
 
     def transform(self, x):
         with self.sess as sess:
