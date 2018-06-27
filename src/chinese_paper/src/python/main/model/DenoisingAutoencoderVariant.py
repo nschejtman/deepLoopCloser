@@ -172,7 +172,6 @@ class DAVariant:
 
             progress_str = "Epoch: %d/%d Loss: %s"
             print(progress_str % (step + 1, self.epochs, self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
-        print(self.sess.run(self.w0)[0, 0])
         self.summary_writer.close()
         self.tf_saver.save(self.sess, self.checkpoint_file)
 
