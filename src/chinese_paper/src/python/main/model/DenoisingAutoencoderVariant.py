@@ -138,21 +138,21 @@ class DAVariant:
 
         return tf.multiply(tf_zeros_mask, x) + tf_ones_mask
 
-    def fit(self, x, warm_start=False, with_device_info=False):
+    def fit(self, x, with_device_info=False):
         if with_device_info:
             with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as self.sess:
-                self._init_model_and_utils(warm_start)
+                self._init_model_and_utils()
                 self._train_model(x)
         else:
             with tf.Session() as self.sess:
-                self._init_model_and_utils(warm_start)
+                self._init_model_and_utils()
                 self._train_model(x)
 
-    def _init_model_and_utils(self, warm_start):
+    def _init_model_and_utils(self):
         self.summary_writer = tf.summary.FileWriter(self.log_path, graph=tf.get_default_graph())
         self.tf_saver = tf.train.Saver(save_relative_paths=True)
 
-        if warm_start and len(os.listdir(self.checkpoint_dir)) > 0:
+        if len(os.listdir(self.checkpoint_dir)) > 0:
             self.tf_saver.restore(self.sess, tf.train.latest_checkpoint(self.checkpoint_dir))
         else:
             init_op = tf.global_variables_initializer()
@@ -177,4 +177,8 @@ class DAVariant:
 
     def transform(self, x):
         with self.sess as sess:
-            sess.run(self.h, feed_dict=x)
+            return sess.run(self.h, feed_dict=x)
+
+    def fit_transform(self, x, with_device_info=False):
+        self.fit(x, with_device_info=with_device_info)
+        return self.transform(x)
