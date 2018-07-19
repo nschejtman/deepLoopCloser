@@ -10,55 +10,26 @@ This class parses image inputs according to the algorithm proposed in the paper 
 """
 
 
-class Parser:
+class CvInputParser:
     def __init__(self, n_patches, patch_size):
         self.n_patches = n_patches
         self.patch_size = patch_size
 
-    def calculate(self, image):
+    def parse(self, image: np.ndarray):
         """
         Parses a single image
         :param image: image in cv::Mat format
-        :return: array of shape ()
+        :return: array of shape (number of keypoints, patch_size^2)
         """
         key_points = get_top_n_key_points(image, self.n_patches)
         vector_patches = get_vectorized_patches_from_key_points(image, key_points, self.patch_size)
         normalized_vector_patches = vector_patches / 255.0
         return normalized_vector_patches
 
-    def calculate_all(self, images, verbose=False):
-        """
-        Parses a batch of images
-        :param images: array of images in cv::Mat format
-        :param verbose:
-        :return:
-        """
-        n_images = len(images)
-        batch = np.empty((n_images, self.n_patches, self.patch_size ** 2))
-        for i, image in enumerate(images):
-            if verbose:
-                print("Processing image %d/%d" % (i + 1, n_images))
-            batch[i] = self.calculate(image)
-        return batch.reshape(n_images * self.n_patches, self.patch_size ** 2)
-
-    def calculate_from_path(self, image_path):
-        """
-        Parses a single image from its path
-        :param image_path: path to image string
-        :return:
-        """
+    def parse_from_path(self, image_path: str):
         resolved_path = str(Path(image_path).resolve())
         image = cv2.imread(resolved_path, cv2.IMREAD_GRAYSCALE)
-        return self.calculate(image)
-
-    def calculate_all_from_path(self, image_path_array):
-        """
-        Parses a batch of images from their respective path
-        :param image_path_array: array of image paths
-        :return:
-        """
-        images = list(map(lambda file: cv2.imread(file, cv2.IMREAD_GRAYSCALE), image_path_array))
-        return self.calculate_all(images)
+        return self.parse(image)
 
 
 def get_top_n_key_points(img, n):
@@ -97,8 +68,6 @@ def get_1d_boundaries(rect_shape: List[int], center_points: np.ndarray, patch_si
 
     if center_points.shape[1] != 2:
         raise ValueError("Invalid center points. Coordinates must be in 2D")
-
-
 
     n_points = len(center_points)
     shift_array = np.full(n_points, math.floor(patch_size / 2))

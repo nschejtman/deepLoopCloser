@@ -78,8 +78,8 @@ class DAVariant:
         self.nf = hidden_layer_dimension
         self.c = corruption_level
         self.beta = sparse_penalty
-        self.sh = sparse_level
         self.gamma = consecutive_penalty
+        self.sh = sparse_level
         self.eta = learning_rate
         self.epochs = epochs
 
