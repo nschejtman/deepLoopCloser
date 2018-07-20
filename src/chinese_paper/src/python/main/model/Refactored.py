@@ -12,7 +12,7 @@ class DA:
                  consecutive_penalty: float = 0.2, batch_size: int = 10, learning_rate: float = 0.1, epochs: int = 100, layer_n: int = 0):
 
         if len(input_shape) != 2:
-            raise ValueError("Input shape must specify a R^2 matrix")
+            raise ValueError("Input shape must specify a rank-2 tensor")
 
         self.input_shape = input_shape
         self.hidden_units = hidden_units
@@ -26,49 +26,64 @@ class DA:
 
         self._sess = None
 
-        self._define_model()
+        self._define_model_variables()
+        self._define_fitting_model()
+        self._define_transforming_model()
         self._define_loss()
         self._define_optimizer()
         self._define_saver()
         self._define_summaries()
 
-    def _define_model(self):
+    def _define_model_variables(self):
+        # Model variables are shared between fit and transform models
+        with tf.name_scope("encoder variables"):
+            self._w0 = tf.Variable(tf.random_normal([self.input_shape[1], self.hidden_units], dtype=tf.float64), name='encoder_weights')
+            self._b0 = tf.Variable(tf.zeros([self.hidden_units], dtype=tf.float64), name='encoder_biases')
 
-        # Input
-        self._x = tf.placeholder(tf.float64, shape=[self.batch_size, self.input_shape[0], self.input_shape[1]], name='input')
-        self._x_flat = tf.reshape(self._x, shape=[self.batch_size * self.input_shape[0], self.input_shape[1]], name='flat_input')
-        self._x_corrupted = self._corrupt_tensor(self._x_flat, name='corrupted_input')
+        with tf.name_scope("decoder variables"):
+            self._w1 = tf.transpose(self._w0, name='decoder_weights')
+            self._b1 = tf.Variable(tf.zeros(self.input_shape[1], dtype=tf.float64), name='decoder_biases')
 
-        # Encoder
-        self._w0 = tf.Variable(tf.random_normal([self.input_shape[1], self.hidden_units], dtype=tf.float64), name='encoder_weights')
-        self._b0 = tf.Variable(tf.zeros([self.hidden_units], dtype=tf.float64), name='encoder_biases')
-        self.hidden_response = tf.nn.sigmoid(self._x_corrupted @ self._w0 + self._b0, name='hidden_response')
+    def _define_fitting_model(self):
+        # Separate model for batch fitting
+        with tf.name_scope("fitting"):
+            batch_shape = [self.batch_size, self.input_shape[0], self.input_shape[1]]
+            flat_batch_shape = [self.batch_size * self.input_shape[0], self.input_shape[1]]
 
-        # Decoder
-        self._w1 = tf.transpose(self._w0, name='decoder_weights')
-        self._b1 = tf.Variable(tf.zeros(self.input_shape[1], dtype=tf.float64), name='decoder_biases')
-        self._y = tf.nn.sigmoid(self.hidden_response @ self._w1 + self._b1, name='recovered_input')
+            self._x_batch = tf.placeholder(tf.float64, shape=batch_shape, name='train_batch')
+            self._x_flat = tf.reshape(self._x_batch, shape=flat_batch_shape, name='train_flat_batch')
+            self._x_corrupted = self._corrupt_tensor(self._x_flat, name='train_corrupted_batch')
+
+            self._h_batch = tf.nn.sigmoid(self._x_corrupted @ self._w0 + self._b0, name='train_hidden_response')
+            self._y_batch = tf.nn.sigmoid(self._h_batch @ self._w1 + self._b1, name='recovered_input')
+
+    def _define_transforming_model(self):
+        with tf.name_scope("transforming"):
+            self._x_single = tf.placeholder(tf.float64, shape=self.input_shape, name="input")
+            self._h_single = tf.nn.sigmoid(self._x_single @ self._w0 + self._b0)
 
     def _define_loss(self):
+        with tf.name_scope("loss"):
+            with tf.name_scope("average cross entropy"):
+                cd = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self._x_batch, logits=self._y_batch),
+                                    name='average_cross_entropy')
 
-        # Average cross entropy
-        cd = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self._x, logits=self._y), name='average_cross_entropy')
+            with tf.name_scope("sparsity constraint"):
+                cs = tf.reduce_mean(tf.norm(self._h_batch - self.sparse_level, axis=1, ord=1), name='sparsity_constraint')
 
-        # Sparsity constraint
-        cs = tf.reduce_mean(tf.norm(self.hidden_response - self.sparse_level, axis=1, ord=1), name='sparsity_constraint')
+            with tf.name_scope("consecutive constraint"):
+                hidden_response_batch = tf.reshape(self._h_batch, [self.batch_size, self.input_shape[0], self.hidden_units])
+                frames = tf.slice(hidden_response_batch, [0, 0, 0], [self.batch_size - 1, self.input_shape[0], self.hidden_units])
+                frames_next = tf.slice(hidden_response_batch, [1, 0, 0], [self.batch_size - 1, self.input_shape[0], self.hidden_units])
+                cc = tf.reduce_mean(tf.norm(frames - frames_next, axis=[1, 2], ord='euclidean'), axis=0, name="consecutive_constraint")
 
-        # Consecutive constraint
-        hidden_response_batch = tf.reshape(self.hidden_response, [self.batch_size, self.input_shape[0], self.hidden_units])
-        frames = tf.slice(hidden_response_batch, [0, 0, 0], [self.batch_size - 1, self.input_shape[0], self.hidden_units])
-        frames_next = tf.slice(hidden_response_batch, [1, 0, 0], [self.batch_size - 1, self.input_shape[0], self.hidden_units])
-        cc = tf.reduce_mean(tf.norm(frames - frames_next, axis=[1, 2], ord='euclidean'), axis=0, name="consecutive_constraint")
-
-        # Loss
-        self._loss = cd + self.sparse_penalty * cs + self.consecutive_penalty * cc
+            # Loss
+            self._loss = cd + self.sparse_penalty * cs + self.consecutive_penalty * cc
 
     def _define_optimizer(self):
+        self.global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name='global_step')
         optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
-        self.train_step = optimizer.minimize(self._loss)
+        self.train_step = optimizer.minimize(self._loss, global_step=self.global_step)
 
     def _define_summaries(self):
         tf.summary.histogram("w0", self._w0)
@@ -81,11 +96,12 @@ class DA:
         self._summary_writer = tf.summary.FileWriter(self.log_dir, graph=tf.get_default_graph())
 
     def _define_saver(self):
-        self._saver = tf.train.Saver(save_relative_paths=True)
-        self.save_dir = 'checkpoints/layer_%d_' % self.layer_n
-        self.save_file = '%s/checkpoint_file' % self.save_dir
+        with tf.name_scope("saver"):
+            self._saver = tf.train.Saver(save_relative_paths=True)
+            self.save_dir = 'checkpoints/layer_%d_' % self.layer_n
+            self.save_file = '%s/checkpoint_file' % self.save_dir
 
-        Path(self.save_dir).mkdir(parents=True, exist_ok=True)
+            Path(self.save_dir).mkdir(parents=True, exist_ok=True)
 
     def _load_or_init_session(self):
         if len(os.listdir(self.save_dir)) > 0:
@@ -97,7 +113,7 @@ class DA:
     def _create_dataset(self, file_pattern: str):
         generator = get_generator(file_pattern, self.input_shape)
         dataset = tf.data.Dataset.from_generator(generator, tf.float64)
-        return dataset.batch(self.batch_size)
+        return dataset.batch(self.batch_size).prefetch(self.batch_size)
 
     @staticmethod
     def _corrupt_tensor(x: tf.Tensor, corruption_level: float = 0.3, name: str = None):
@@ -130,27 +146,40 @@ class DA:
             batch_n = 0
             while True:
                 try:
+                    batch = iterator.get_next()
+
+                    # if batch size is different from the specified batch size the fitting model won't work due to mismatching shapes
+                    if len(batch) != self.batch_size:
+                        break
+
                     self._load_or_init_session()
 
-                    batch = iterator.get_next()
-                    stacked_batch = tf.stack(batch)
-                    x = self._sess.run(stacked_batch)
+                    stack_batch = tf.stack(batch)
+                    x_batch = self._sess.run(stack_batch)
 
                     for step in range(self.epochs):
-                        self._sess.run(self.train_step, feed_dict={self._x: x})
+                        self._sess.run(self.train_step, feed_dict={self._x_batch: x_batch})
 
-                        if step % 10 == 0:
-                            summary_str = self._sess.run(self._summary_op, feed_dict={self._x: x})
-                            self._summary_writer.add_summary(summary_str)
+                        if step + 1 % 10 == 0:
+                            self._write_summaries(x_batch)
+                            self._saver.save(self._sess, self.save_file, global_step=self.global_step)
 
                         if verbose:
-                            progress_str = "Batch: %d, Epoch: %d/%d, Loss: %s"
-
-                            loss = self._sess.run(self._loss, feed_dict={self._x: x})
-                            print(progress_str % (batch_n, step + 1, self.epochs, loss))
-
-                    batch_n += 1
-                    self._saver.save(self._sess, self.save_file)
+                            self._print_progress(batch_n, step, x_batch)
 
                 except tf.errors.OutOfRangeError:
                     break
+
+    def _print_progress(self, batch_n, step, x_batch):
+        progress_str = "Batch: %d, Epoch: %d/%d, Loss: %s"
+        loss = self._sess.run(self._loss, feed_dict={self._x_batch: x_batch})
+        tf.logging.log(tf.logging.INFO, progress_str % (batch_n, step + 1, self.epochs, loss))
+
+    def _write_summaries(self, x_batch):
+        summary_str = self._sess.run(self._summary_op, feed_dict={self._x_batch: x_batch})
+        self._summary_writer.add_summary(summary_str)
+
+    def transform(self, x):
+        with tf.Session() as self._sess:
+            self._load_or_init_session()
+            return self._sess.run(self._h_single, feed_dict={self._x_single: x})
