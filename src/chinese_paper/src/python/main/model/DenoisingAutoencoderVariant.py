@@ -1,128 +1,142 @@
+import logging
 import os
+from argparse import ArgumentParser
 
 import numpy as np
 import tensorflow as tf
 from pathlib2 import Path
 
-defaults = {
-    'layer_n': 0,
-    'keypoints': 30,
-    'patch_size': 41,
-    'batch_size': 5,
-    'hidden_units': 2500,
-    'corruption_level': 0.3,
-    'sparse_penalty': 1,
-    'sparse_level': 0.05,
-    'consecutive_penalty': 0.2,
-    'learning_rate': 0.1,
-    'epochs': 100
-}
+from input.InputGenerator import get_generator
 
 
-class DAVariant:
-    @staticmethod
-    def from_dict(conf):
-        return DAVariant(conf['layer_n'], keypoints=conf['keypoints'], patch_size=conf['patch_size'],
-                         batch_size=conf['batch_size'],
-                         hidden_units=conf['hidden_units'],
-                         corruption_level=conf['corruption_level'], sparse_penalty=conf['sparse_penalty'],
-                         sparse_level=conf['sparse_level'],
-                         consecutive_penalty=conf['consecutive_penalty'], learning_rate=conf['learning_rate'],
-                         epochs=conf['epochs'])
+class DA:
+    def __init__(self,
+                 input_shape: list,
+                 hidden_units: int,
+                 sparse_level: float = 0.05,
+                 sparse_penalty: float = 1,
+                 consecutive_penalty: float = 0.2,
+                 batch_size: int = 10,
+                 learning_rate: float = 0.1,
+                 epochs: int = 100,
+                 layer_n: int = 0,
+                 corruption_level: float = 0.3):
 
-    def __init__(self, layer_n, keypoints=defaults['keypoints'], patch_size=defaults['patch_size'],
-                 batch_size=defaults['batch_size'], hidden_units=defaults['hidden_units'],
-                 corruption_level=defaults['corruption_level'], sparse_penalty=defaults['sparse_penalty'],
-                 sparse_level=defaults['sparse_level'],
-                 consecutive_penalty=defaults['consecutive_penalty'], learning_rate=defaults['learning_rate'],
-                 epochs=defaults['epochs']):
-        """
-        Model parameters
-        :param keypoints:
-        :param patch_size:
-        :param batch_size:
-        :param hidden_units:
-        :param corruption_level:
-        :param sparse_penalty:
-        :param sparse_level:
-        :param consecutive_penalty:
-        :param learning_rate:
-        :param epochs:
-        """
-        self._set_parameters(layer_n, consecutive_penalty, corruption_level, hidden_units, learning_rate,
-                             batch_size, epochs, keypoints, patch_size, sparse_level,
-                             sparse_penalty)
+        if len(input_shape) != 2:
+            raise ValueError('Input shape must specify a rank-2 tensor')
 
-        self._set_utilities()
-
-        self._build_model()
-
-    def _set_utilities(self):
-        self.sess = None
-        self.tf_saver = None
-        self.summary_writer = None
-
-        self.checkpoint_dir = str(Path("saved_tf_sessions/layer_%d_" % self.layer_n).resolve())
-        self.checkpoint_file = "%s/checkpoint_file" % self.checkpoint_dir
-        Path(self.checkpoint_dir).mkdir(parents=True, exist_ok=True)
-
-        self.log_path = "./log"
-        Path(self.log_path).mkdir(parents=True, exist_ok=True)
-
-    def _set_parameters(self, layer_n, consecutive_penalty, corruption_level, hidden_layer_dimension, learning_rate,
-                        batch_size, epochs, keypoints, patch_size, sparse_level, sparse_penalty):
-        self.layer_n = layer_n
-        self.n = keypoints
-        self.s = patch_size
-        self.nb = batch_size
-        self.nf = hidden_layer_dimension
-        self.c = corruption_level
-        self.beta = sparse_penalty
-        self.gamma = consecutive_penalty
-        self.sh = sparse_level
-        self.eta = learning_rate
+        self.input_shape = input_shape
+        self.hidden_units = hidden_units
+        self.sparse_level = sparse_level
+        self.sparse_penalty = sparse_penalty
+        self.consecutive_penalty = consecutive_penalty
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
         self.epochs = epochs
+        self.corruption_level = corruption_level
+        self.layer_n = layer_n
 
-    def _build_model(self):
-        # Build the computation graph
-        self.x_placeholder = tf.placeholder(tf.float64, shape=[self.nb * self.n, self.s ** 2])
-        self.x_corr = self._corrupt(self.x_placeholder, self.c)
-        self.w0 = tf.Variable(tf.random_normal([self.s ** 2, self.nf], dtype=tf.float64))
-        b0 = tf.Variable(tf.zeros([self.nf], dtype=tf.float64))
-        self.h = tf.nn.sigmoid(self.x_corr @ self.w0 + b0)
-        w1 = tf.transpose(self.w0)
-        b1 = tf.Variable(tf.zeros([self.s ** 2], dtype=tf.float64))
-        y = tf.nn.sigmoid(self.h @ w1 + b1)
+        self._sess = None
 
-        # Build the loss function
-        # Average Cross entropy
-        cd = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.x_placeholder, logits=y))
-        # Sparsity constraint
-        cs = tf.reduce_mean(tf.norm(self.h - self.sh, axis=1, ord=1))
-        # Consecutive constraint
-        frames_batch = tf.reshape(self.h, [self.nb, self.n, self.nf])
-        frames_i = tf.slice(frames_batch, [0, 0, 0], [self.nb - 1, self.n, self.nf])
-        frames_i_plus_1 = tf.slice(frames_batch, [1, 0, 0], [self.nb - 1, self.n, self.nf])
-        norm = tf.norm(frames_i - frames_i_plus_1, axis=[1, 2], ord='euclidean')
-        cc = tf.reduce_mean(norm, axis=0)
-        self.loss = cd + self.beta * cs + self.gamma * cc
+        self._define_model_variables()
+        self._define_fitting_model()
+        self._define_transforming_model()
+        self._define_loss()
+        self._define_optimizer()
+        self._define_saver()
+        self._define_summaries()
 
-        # Add summary ops to collect data
-        tf.summary.histogram("w0", self.w0)
-        tf.summary.histogram("b0", b0)
-        tf.summary.histogram("w1", w1)
-        tf.summary.histogram("b1", b1)
-        tf.summary.scalar("loss", self.loss)
-        self.summary = tf.summary.merge_all()
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
 
-    @staticmethod
-    def _corrupt(x, corruption_level=0.0):
+    def _define_model_variables(self):
+        # Model variables are shared between fit and transform models
+        with tf.name_scope('encoder_variables'):
+            self._w0 = tf.Variable(tf.random_normal([self.input_shape[1], self.hidden_units], dtype=tf.float64), name='encoder_weights')
+            self._b0 = tf.Variable(tf.zeros([self.hidden_units], dtype=tf.float64), name='encoder_biases')
+
+        with tf.name_scope('decoder_variables'):
+            self._w1 = tf.transpose(self._w0, name='decoder_weights')
+            self._b1 = tf.Variable(tf.zeros(self.input_shape[1], dtype=tf.float64), name='decoder_biases')
+
+    def _define_fitting_model(self):
+        # Separate model for batch fitting
+        with tf.name_scope('fitting'):
+            batch_shape = [self.batch_size, self.input_shape[0], self.input_shape[1]]
+            flat_batch_shape = [self.batch_size * self.input_shape[0], self.input_shape[1]]
+
+            self._x_batch = tf.placeholder(tf.float64, shape=batch_shape, name='train_batch')
+            self._x_flat = tf.reshape(self._x_batch, shape=flat_batch_shape, name='train_flat_batch')
+            self._x_corrupted = self._corrupt_tensor(self._x_flat, name='train_corrupted_batch')
+
+            self._h_batch = tf.nn.sigmoid(self._x_corrupted @ self._w0 + self._b0, name='train_hidden_response')
+            self._y_batch = tf.nn.sigmoid(self._h_batch @ self._w1 + self._b1, name='recovered_input')
+
+    def _define_transforming_model(self):
+        with tf.name_scope('transforming'):
+            self._x_single = tf.placeholder(tf.float64, shape=self.input_shape, name='input')
+            self._h_single = tf.nn.sigmoid(self._x_single @ self._w0 + self._b0)
+
+    def _define_loss(self):
+        with tf.name_scope('loss'):
+            with tf.name_scope('average_cross_entropy'):
+                cd = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self._x_batch, logits=self._y_batch),
+                                    name='average_cross_entropy')
+
+            with tf.name_scope('sparsity_constraint'):
+                cs = tf.reduce_mean(tf.norm(self._h_batch - self.sparse_level, axis=1, ord=1), name='sparsity_constraint')
+
+            with tf.name_scope('consecutive_constraint'):
+                hidden_response_batch = tf.reshape(self._h_batch, [self.batch_size, self.input_shape[0], self.hidden_units])
+                frames = tf.slice(hidden_response_batch, [0, 0, 0], [self.batch_size - 1, self.input_shape[0], self.hidden_units])
+                frames_next = tf.slice(hidden_response_batch, [1, 0, 0], [self.batch_size - 1, self.input_shape[0], self.hidden_units])
+                cc = tf.reduce_mean(tf.norm(frames - frames_next, axis=[1, 2], ord='euclidean'), axis=0, name='consecutive_constraint')
+
+            # Loss
+            self._loss = cd + self.sparse_penalty * cs + self.consecutive_penalty * cc
+
+    def _define_optimizer(self):
+        self.global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name='global_step')
+        optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
+        self.train_step = optimizer.minimize(self._loss, global_step=self.global_step)
+
+    def _define_summaries(self):
+        tf.summary.histogram('w0', self._w0)
+        tf.summary.histogram('b0', self._b0)
+        tf.summary.histogram('w1', self._w1)
+        tf.summary.histogram('b1', self._b1)
+        tf.summary.scalar('loss', self._loss)
+        self.log_dir = './log'
+        self._summary_op = tf.summary.merge_all()
+        self._summary_writer = tf.summary.FileWriter(self.log_dir, graph=tf.get_default_graph())
+
+    def _define_saver(self):
+        with tf.name_scope('saver'):
+            self._saver = tf.train.Saver(save_relative_paths=True)
+            self.save_dir = 'checkpoints/layer_%d_' % self.layer_n
+            self.save_file = '%s/checkpoint_file' % self.save_dir
+
+            Path(self.save_dir).mkdir(parents=True, exist_ok=True)
+
+    def _load_or_init_session(self):
+        if len(os.listdir(self.save_dir)) > 0:
+            self._saver.restore(self._sess, tf.train.latest_checkpoint(self.save_dir))
+        else:
+            init_op = tf.global_variables_initializer()
+            self._sess.run(init_op)
+
+    def _create_dataset(self, file_pattern: str):
+        generator = get_generator(file_pattern, self.input_shape)
+        dataset = tf.data.Dataset.from_generator(generator, tf.float64)
+        return dataset.batch(self.batch_size).prefetch(self.batch_size)
+
+    def _corrupt_tensor(self, x: tf.Tensor, name: str = None):
         shape = np.array(x.get_shape().as_list())
         n_elems = shape.prod()
 
         # Create the corruption mask
         zeros_mask = np.ones(n_elems)
-        zeros_mask[:int(n_elems * corruption_level)] = 0
+        zeros_mask[:int(n_elems * self.corruption_level)] = 0
         np.random.shuffle(zeros_mask)
 
         ones_mask = (zeros_mask - 1) * (-1)
@@ -136,49 +150,91 @@ class DAVariant:
         tf_zeros_mask = tf.constant(zeros_mask.astype(float))
         tf_ones_mask = tf.constant(ones_mask.astype(float))
 
-        return tf.multiply(tf_zeros_mask, x) + tf_ones_mask
+        return tf.multiply(tf_zeros_mask, x, name=name) + tf_ones_mask
 
-    def fit(self, x, with_device_info=False):
-        if with_device_info:
-            with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as self.sess:
-                self._init_model_and_utils()
-                self._train_model(x)
-        else:
-            with tf.Session() as self.sess:
-                self._init_model_and_utils()
-                self._train_model(x)
+    def fit_dataset(self, file_pattern: str):
+        dataset = self._create_dataset(file_pattern)
+        iterator = dataset.make_one_shot_iterator()
 
-    def _init_model_and_utils(self):
-        self.summary_writer = tf.summary.FileWriter(self.log_path, graph=tf.get_default_graph())
-        self.tf_saver = tf.train.Saver(save_relative_paths=True)
+        with tf.Session() as self._sess:
+            batch_n = 0
+            while True:
+                try:
+                    self._load_or_init_session()
 
-        if len(os.listdir(self.checkpoint_dir)) > 0:
-            self.tf_saver.restore(self.sess, tf.train.latest_checkpoint(self.checkpoint_dir))
-        else:
-            init_op = tf.global_variables_initializer()
-            self.sess.run(init_op)
+                    batch = iterator.get_next()
+                    stack_batch_op = tf.stack(batch)
+                    stacked_batch = self._sess.run(stack_batch_op)
 
-    def _train_model(self, x):
-        # Declare the optimizer
-        optimizer = tf.train.GradientDescentOptimizer(self.eta)
-        train_fn = optimizer.minimize(self.loss)
-        for step in range(self.epochs):
-            self.sess.run(train_fn, feed_dict={self.x_placeholder: x})
+                    # if batch size is different from the specified batch size the fitting model won't work due to mismatching shapes
+                    if len(stacked_batch) != self.batch_size:
+                        logging.warning("Ignored last batch because it was smaller than the specified batch size. To avoid this choose "
+                                        "a batch size that is a factor of the dataset size.")
+                        break
 
-            # Write logs for each iteration
-            if step % 10 == 0:
-                summary_str = self.sess.run(self.summary, feed_dict={self.x_placeholder: x})
-                self.summary_writer.add_summary(summary_str)
+                    for step in range(self.epochs):
+                        self._sess.run(self.train_step, feed_dict={self._x_batch: stacked_batch})
 
-            progress_str = "Epoch: %d/%d Loss: %s"
-            print(progress_str % (step + 1, self.epochs, self.sess.run(self.loss, feed_dict={self.x_placeholder: x})))
-        self.summary_writer.close()
-        self.tf_saver.save(self.sess, self.checkpoint_file)
+                        if step + 1 % 10 == 0:
+                            self._write_summaries(stacked_batch)
+                            self._saver.save(self._sess, self.save_file, global_step=self.global_step)
+
+                        self._log_progress(batch_n, step, stacked_batch)
+
+                except tf.errors.OutOfRangeError:
+                    break
+
+    def _log_progress(self, batch_n, step, x_batch):
+        progress_str = 'Batch: %d, Epoch: %d/%d, Loss: %s'
+        loss = self._sess.run(self._loss, feed_dict={self._x_batch: x_batch})
+        logging.info(progress_str % (batch_n, step + 1, self.epochs, loss))
+
+    def _write_summaries(self, x_batch):
+        summary_str = self._sess.run(self._summary_op, feed_dict={self._x_batch: x_batch})
+        self._summary_writer.add_summary(summary_str)
 
     def transform(self, x):
-        with self.sess as sess:
-            return sess.run(self.h, feed_dict=x)
+        with tf.Session() as self._sess:
+            self._load_or_init_session()
+            return self._sess.run(self._h_single, feed_dict={self._x_single: x})
 
-    def fit_transform(self, x, with_device_info=False):
-        self.fit(x, with_device_info=with_device_info)
-        return self.transform(x)
+
+if __name__ == '__main__':
+    arg_parser = ArgumentParser(description='Use this main file to train the model')
+
+    # Positional arguments
+    arg_parser.add_argument('operation', choices=['train', 'transform'], help='Operation to perform')
+
+    # Optional arguments
+    arg_parser.add_argument('--dataset_dir', help='Path to the dataset directory', required=True)
+    arg_parser.add_argument('--dataset_ext', help='Extension of the image files in the dataset directory', required=True)
+
+    arg_parser.add_argument('--input_shape', help='Shape of the input layer', type=int, nargs=2, default=[30, 1681])
+    arg_parser.add_argument('--hidden_units', help='Number of hidden units', type=int, default=2500)
+    arg_parser.add_argument('--batch_size', help='Batch size for training', type=int, default=10)
+    arg_parser.add_argument('--corruption_level', help='Percentage of input vector to corrupt', type=float, default=0.3)
+    arg_parser.add_argument('--sparse_penalty', help='Penalty weight for the sparsity constraint', type=float, default=1)
+    arg_parser.add_argument('--sparse_level', help='Threshold factor for the sparsity constraint', type=float, default=0.05)
+    arg_parser.add_argument('--consecutive_penalty', help='Penalty weight for consecutive constraint', type=float, default=0.2)
+    arg_parser.add_argument('--learning_rate', help='Learning rate', type=float, default=0.1)
+    arg_parser.add_argument('--epochs', help='Number of epochs to train each batch', type=int, default=100)
+    arg_parser.add_argument('--verbose', help='Verbosity level for operations', type=bool, default=True)
+
+    # Parse arguments
+    conf = arg_parser.parse_args()
+
+    # Create model
+    model = DA(conf.input_shape,
+               conf.hidden_units,
+               sparse_level=conf.sparse_level,
+               sparse_penalty=conf.sparse_penalty,
+               consecutive_penalty=conf.consecutive_penalty,
+               batch_size=conf.batch_size,
+               learning_rate=conf.learning_rate,
+               epochs=conf.epochs,
+               corruption_level=conf.corruption_level)
+
+    dataset_path = ('%s/*.%s' % (conf.dataset_dir, conf.dataset_ext)).replace('*..', '*.').replace('//', '/')
+
+    if conf.operation == 'train':
+        model.fit_dataset(dataset_path)

@@ -1,7 +1,7 @@
 import math
 from functools import partial
 from glob import glob
-
+import logging
 from pathlib2 import Path
 
 from input.CvInputParser import CvInputParser as Parser
@@ -16,7 +16,10 @@ def get_generator(file_pattern: str, shape: list):
 def iteration(file_pattern: str, n_patches: int, patch_size: int):
     resolved_path = str(Path(file_pattern).resolve())
     files = glob(resolved_path)
-    files.sort()
+
+    if len(files) == 0:
+        logger = logging.getLogger()
+        logger.error("Specified dataset is empty or could not find dataset")
 
     parser = Parser(n_patches, patch_size)
     for file in files:
