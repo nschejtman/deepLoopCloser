@@ -195,6 +195,8 @@ class DA:
 
                         self._log_progress(batch_n, step, stacked_batch)
 
+                    batch_n += 1
+
                 except tf.errors.OutOfRangeError:
                     break
 
