@@ -1,13 +1,21 @@
+# This hack allows to import the input module from a sibling directory
+# noinspection PyUnboundLocalVariable
+if __name__ == "__main__" and __package__ is None:
+    from sys import path
+    from os.path import dirname
+
+    path.append(dirname(path[0]))
+    __package__ = "main"
+# End hack
+
 import logging
 import os
-import sys
 from argparse import ArgumentParser
 
 import numpy as np
 import tensorflow as tf
 from pathlib2 import Path
 
-sys.path.append('../')
 from input.InputGenerator import get_generator
 
 
@@ -40,6 +48,13 @@ class DA:
 
         self._sess = None
 
+        root_name = 'chinese_paper'
+        script_path = os.path.abspath(__file__)
+        self.train_path = script_path[:(script_path.find(root_name) + len(root_name))] + '/training'
+
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+
         self._define_model_variables()
         self._define_fitting_model()
         self._define_transforming_model()
@@ -47,9 +62,6 @@ class DA:
         self._define_optimizer()
         self._define_saver()
         self._define_summaries()
-
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
 
     def _define_model_variables(self):
         # Model variables are shared between fit and transform models
@@ -108,14 +120,14 @@ class DA:
         tf.summary.histogram('w1', self._w1)
         tf.summary.histogram('b1', self._b1)
         tf.summary.scalar('loss', self._loss)
-        self.log_dir = './log'
+        self.log_dir = '%s/log' % self.train_path
         self._summary_op = tf.summary.merge_all()
         self._summary_writer = tf.summary.FileWriter(self.log_dir, graph=tf.get_default_graph())
 
     def _define_saver(self):
         with tf.name_scope('saver'):
             self._saver = tf.train.Saver(save_relative_paths=True)
-            self.save_dir = 'checkpoints/layer_%d_' % self.layer_n
+            self.save_dir = '%s/checkpoints/layer_%d_' % (self.train_path, self.layer_n)
             self.save_file = '%s/checkpoint_file' % self.save_dir
 
             Path(self.save_dir).mkdir(parents=True, exist_ok=True)
@@ -201,16 +213,13 @@ class DA:
             return self._sess.run(self._h_single, feed_dict={self._x_single: x})
 
 
-if __name__ == '__main__':
-    arg_parser = ArgumentParser(description='Use this main file to train the model')
-
+def add_arguments(arg_parser):
     # Positional arguments
     arg_parser.add_argument('operation', choices=['train', 'transform'], help='Operation to perform')
-
-    # Optional arguments
+    # Named arguments
     arg_parser.add_argument('--dataset_dir', help='Path to the dataset directory', required=True)
     arg_parser.add_argument('--dataset_ext', help='Extension of the image files in the dataset directory', required=True)
-
+    # Named optional arguments
     arg_parser.add_argument('--input_shape', help='Shape of the input layer', type=int, nargs=2, default=[30, 1681])
     arg_parser.add_argument('--hidden_units', help='Number of hidden units', type=int, default=2500)
     arg_parser.add_argument('--batch_size', help='Batch size for training', type=int, default=10)
@@ -222,8 +231,12 @@ if __name__ == '__main__':
     arg_parser.add_argument('--epochs', help='Number of epochs to train each batch', type=int, default=100)
     arg_parser.add_argument('--verbose', help='Verbosity level for operations', type=bool, default=True)
 
-    # Parse arguments
-    conf = arg_parser.parse_args()
+
+def main():
+    # Get arguments
+    parser = ArgumentParser(description='Use this main file to train the model')
+    add_arguments(parser)
+    conf = parser.parse_args()
 
     # Create model
     model = DA(conf.input_shape,
@@ -240,3 +253,7 @@ if __name__ == '__main__':
 
     if conf.operation == 'train':
         model.fit_dataset(dataset_path)
+
+
+if __name__ == '__main__':
+    main()
