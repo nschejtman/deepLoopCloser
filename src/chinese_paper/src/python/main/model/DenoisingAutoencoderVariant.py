@@ -1,11 +1,13 @@
 import logging
 import os
+import sys
 from argparse import ArgumentParser
 
 import numpy as np
 import tensorflow as tf
 from pathlib2 import Path
 
+sys.path.append('../')
 from input.InputGenerator import get_generator
 
 
