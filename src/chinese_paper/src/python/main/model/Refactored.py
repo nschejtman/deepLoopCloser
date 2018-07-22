@@ -36,11 +36,11 @@ class DA:
 
     def _define_model_variables(self):
         # Model variables are shared between fit and transform models
-        with tf.name_scope("encoder variables"):
+        with tf.name_scope("encoder_variables"):
             self._w0 = tf.Variable(tf.random_normal([self.input_shape[1], self.hidden_units], dtype=tf.float64), name='encoder_weights')
             self._b0 = tf.Variable(tf.zeros([self.hidden_units], dtype=tf.float64), name='encoder_biases')
 
-        with tf.name_scope("decoder variables"):
+        with tf.name_scope("decoder_variables"):
             self._w1 = tf.transpose(self._w0, name='decoder_weights')
             self._b1 = tf.Variable(tf.zeros(self.input_shape[1], dtype=tf.float64), name='decoder_biases')
 
@@ -64,14 +64,14 @@ class DA:
 
     def _define_loss(self):
         with tf.name_scope("loss"):
-            with tf.name_scope("average cross entropy"):
+            with tf.name_scope("average_cross_entropy"):
                 cd = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self._x_batch, logits=self._y_batch),
                                     name='average_cross_entropy')
 
-            with tf.name_scope("sparsity constraint"):
+            with tf.name_scope("sparsity_constraint"):
                 cs = tf.reduce_mean(tf.norm(self._h_batch - self.sparse_level, axis=1, ord=1), name='sparsity_constraint')
 
-            with tf.name_scope("consecutive constraint"):
+            with tf.name_scope("consecutive_constraint"):
                 hidden_response_batch = tf.reshape(self._h_batch, [self.batch_size, self.input_shape[0], self.hidden_units])
                 frames = tf.slice(hidden_response_batch, [0, 0, 0], [self.batch_size - 1, self.input_shape[0], self.hidden_units])
                 frames_next = tf.slice(hidden_response_batch, [1, 0, 0], [self.batch_size - 1, self.input_shape[0], self.hidden_units])
@@ -146,26 +146,25 @@ class DA:
             batch_n = 0
             while True:
                 try:
-                    batch = iterator.get_next()
-
-                    # if batch size is different from the specified batch size the fitting model won't work due to mismatching shapes
-                    if len(batch) != self.batch_size:
-                        break
-
                     self._load_or_init_session()
 
-                    stack_batch = tf.stack(batch)
-                    x_batch = self._sess.run(stack_batch)
+                    batch = iterator.get_next()
+                    stack_batch_op = tf.stack(batch)
+                    stacked_batch = self._sess.run(stack_batch_op)
+
+                    # if batch size is different from the specified batch size the fitting model won't work due to mismatching shapes
+                    if len(stacked_batch) != self.batch_size:
+                        break
 
                     for step in range(self.epochs):
-                        self._sess.run(self.train_step, feed_dict={self._x_batch: x_batch})
+                        self._sess.run(self.train_step, feed_dict={self._x_batch: stacked_batch})
 
                         if step + 1 % 10 == 0:
-                            self._write_summaries(x_batch)
+                            self._write_summaries(stacked_batch)
                             self._saver.save(self._sess, self.save_file, global_step=self.global_step)
 
                         if verbose:
-                            self._print_progress(batch_n, step, x_batch)
+                            self._print_progress(batch_n, step, stacked_batch)
 
                 except tf.errors.OutOfRangeError:
                     break
@@ -173,7 +172,7 @@ class DA:
     def _print_progress(self, batch_n, step, x_batch):
         progress_str = "Batch: %d, Epoch: %d/%d, Loss: %s"
         loss = self._sess.run(self._loss, feed_dict={self._x_batch: x_batch})
-        tf.logging.log(tf.logging.INFO, progress_str % (batch_n, step + 1, self.epochs, loss))
+        print(progress_str % (batch_n, step + 1, self.epochs, loss))
 
     def _write_summaries(self, x_batch):
         summary_str = self._sess.run(self._summary_op, feed_dict={self._x_batch: x_batch})
