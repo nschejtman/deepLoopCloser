@@ -5,3 +5,5 @@ build/catkin build/catkin_generated build/CATKIN_IGNORE build/catkin_make.cache 
 __pycache__
 /Dataset/*.csv
 .pytest_cache
+src/chinese_paper/src/python/venv/bin src/chinese_paper/src/python/venv/include src/chinese_paper/src/python/venv/lib src/chinese_paper/src/python/venv/pip-selfcheck.json
+src/chinese_paper/src/python/venv/
