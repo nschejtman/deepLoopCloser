@@ -14,7 +14,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import tensorflow as tf
-from pathlib2 import Path
+from pathlib import Path
 from py_v8n import v8n
 
 from input.InputGenerator import get_generator
@@ -25,7 +25,7 @@ class DA:
                  input_shape: list,
                  hidden_units: int,
                  sparse_level: float = 0.05,
-                 sparse_penalty: float = 1,
+                 sparse_penalty: float = 1.0,
                  consecutive_penalty: float = 0.2,
                  batch_size: int = 10,
                  learning_rate: float = 0.1,
@@ -252,7 +252,7 @@ def add_arguments(arg_parser):
     arg_parser.add_argument('--hidden_units', help='Number of hidden units', type=int, default=2500)
     arg_parser.add_argument('--batch_size', help='Batch size for training', type=int, default=10)
     arg_parser.add_argument('--corruption_level', help='Percentage of input vector to corrupt', type=float, default=0.3)
-    arg_parser.add_argument('--sparse_penalty', help='Penalty weight for the sparsity constraint', type=float, default=1)
+    arg_parser.add_argument('--sparse_penalty', help='Penalty weight for the sparsity constraint', type=float, default=1.0)
     arg_parser.add_argument('--sparse_level', help='Threshold factor for the sparsity constraint', type=float, default=0.05)
     arg_parser.add_argument('--consecutive_penalty', help='Penalty weight for consecutive constraint', type=float, default=0.2)
     arg_parser.add_argument('--learning_rate', help='Learning rate', type=float, default=0.1)
