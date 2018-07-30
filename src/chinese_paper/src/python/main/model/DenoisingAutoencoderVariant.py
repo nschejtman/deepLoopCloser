@@ -15,6 +15,7 @@ from argparse import ArgumentParser
 import numpy as np
 import tensorflow as tf
 from pathlib2 import Path
+from py_v8n import v8n
 
 from input.InputGenerator import get_generator
 
@@ -32,8 +33,8 @@ class DA:
                  layer_n: int = 0,
                  corruption_level: float = 0.3):
 
-        if len(input_shape) != 2:
-            raise ValueError('Input shape must specify a rank-2 tensor')
+        self._validate_params(input_shape, hidden_units, sparse_level, sparse_penalty, consecutive_penalty, batch_size, learning_rate,
+                              epochs, layer_n, corruption_level)
 
         self.input_shape = input_shape
         self.hidden_units = hidden_units
@@ -62,6 +63,31 @@ class DA:
         self._define_optimizer()
         self._define_saver()
         self._define_summaries()
+
+    @staticmethod
+    def _validate_params(input_shape: list, hidden_units: int,
+                         sparse_level: float, sparse_penalty: float,
+                         consecutive_penalty: float, batch_size: int,
+                         learning_rate: float, epochs: int,
+                         layer_n: int, corruption_level: float):
+
+        is_positive_decimal = v8n().float_().positive()
+        is_positive_decimal.validate(learning_rate, value_name="learning_rate")
+        is_positive_decimal.validate(sparse_level, value_name="sparse_level")
+
+        is_decimal_fraction = v8n().float_().between(0, 1)
+        is_decimal_fraction.validate(sparse_penalty, value_name="sparse_penalty")
+        is_decimal_fraction.validate(consecutive_penalty, value_name="consecutive_penalty")
+        is_decimal_fraction.validate(corruption_level, value_name="corruption_level")
+
+        is_positive_int = v8n().int_().positive()
+        is_positive_int.validate(hidden_units, value_name="hidden_units")
+        is_positive_int.validate(layer_n, value_name="layer_n")
+        is_positive_int.validate(batch_size, value_name="batch_size")
+        is_positive_int.validate(epochs, value_name="epochs")
+
+        has_two_ints = v8n().list_().length(2).every().int_().greater_than(0)
+        has_two_ints.validate(input_shape, value_name="input_shape")
 
     def _define_model_variables(self):
         # Model variables are shared between fit and transform models
