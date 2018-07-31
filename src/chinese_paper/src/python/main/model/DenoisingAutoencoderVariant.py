@@ -11,10 +11,10 @@ if __name__ == "__main__" and __package__ is None:
 import logging
 import os
 from argparse import ArgumentParser
+from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
-from pathlib import Path
 from py_v8n import v8n
 
 from input.InputGenerator import get_generator
@@ -192,8 +192,11 @@ class DA:
 
         return tf.multiply(tf_zeros_mask, x, name=name) + tf_ones_mask
 
-    def fit_dataset(self, file_pattern: str):
+    def fit(self, file_pattern: str):
         dataset = self._create_dataset(file_pattern)
+        return self.fit_dataset(dataset)
+
+    def fit_dataset(self, dataset: tf.data.Dataset):
         iterator = dataset.make_one_shot_iterator()
 
         with tf.Session() as self._sess:
@@ -280,7 +283,7 @@ def main():
     dataset_path = ('%s/*.%s' % (conf.dataset_dir, conf.dataset_ext)).replace('*..', '*.').replace('//', '/')
 
     if conf.operation == 'train':
-        model.fit_dataset(dataset_path)
+        model.fit(dataset_path)
 
 
 if __name__ == '__main__':
