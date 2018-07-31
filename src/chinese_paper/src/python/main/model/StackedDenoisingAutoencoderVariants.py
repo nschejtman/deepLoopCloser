@@ -16,7 +16,7 @@ import tensorflow as tf
 from py_v8n import v8n
 
 from input.InputGenerator import get_generator
-from main.model.DenoisingAutoencoderVariant import DA
+from model.DenoisingAutoencoderVariant import DA
 
 
 class SDA:
