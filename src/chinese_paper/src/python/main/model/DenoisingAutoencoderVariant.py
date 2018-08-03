@@ -53,9 +53,7 @@ class DA:
         script_path = os.path.abspath(__file__)
         self.train_path = script_path[:(script_path.find(root_name) + len(root_name))] + '/training'
 
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
-
+        self._define_logger()
         self._define_model_variables()
         self._define_fitting_model()
         self._define_transforming_model()
@@ -63,6 +61,10 @@ class DA:
         self._define_optimizer()
         self._define_saver()
         self._define_summaries()
+
+    def _define_logger(self):
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.INFO)
 
     @staticmethod
     def _validate_params(input_shape: list, hidden_units: int,
