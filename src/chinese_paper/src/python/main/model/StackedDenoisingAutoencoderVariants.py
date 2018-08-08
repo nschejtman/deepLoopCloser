@@ -48,10 +48,12 @@ class SDA:
         script_path = os.path.abspath(__file__)
         self.train_path = script_path[:(script_path.find(root_name) + len(root_name))] + '/training'
 
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
-
+        self._define_logger()
         self._define_model()
+
+    def _define_logger(self):
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.INFO)
 
     @staticmethod
     def _validate_params(input_shape: list, hidden_units: list,
@@ -90,14 +92,18 @@ class SDA:
     def _create_dataset(self, file_pattern: str):
         generator = get_generator(file_pattern, self.input_shape)
         dataset = tf.data.Dataset.from_generator(generator, tf.float64)
-        return dataset.batch(self.batch_size).prefetch(self.batch_size)
+        return dataset.prefetch(self.batch_size)
 
     def fit(self, file_pattern: str):
+        logging.info("Fitting Layer 0")
         self._layers[0].fit(file_pattern)
         dataset = self._create_dataset(file_pattern)
 
-        for i, layer in enumerate(self._layers):
-            dataset = dataset.map(self._layers[i - 1].transform, num_parallel_calls=64)
+        for i, layer in enumerate(self._layers[1:]):
+            logging.info("Fitting Layer %d" % layer.layer_n)
+            print("SDA graph: %s" % str(tf.get_default_graph))
+            # dataset = dataset.map(lambda x: tf.py_func(self._my_fun, [x], tf.float64), num_parallel_calls=64)
+            dataset = dataset.map(lambda x: tf.py_func(self._layers[i - 1].transform, [x], tf.float64), num_parallel_calls=64)
             layer.fit_dataset(dataset)
 
 
@@ -128,14 +134,14 @@ def main():
 
     # Create model
     model = SDA(conf.input_shape,
-               conf.hidden_units,
-               sparse_level=conf.sparse_level,
-               sparse_penalty=conf.sparse_penalty,
-               consecutive_penalty=conf.consecutive_penalty,
-               batch_size=conf.batch_size,
-               learning_rate=conf.learning_rate,
-               epochs=conf.epochs,
-               corruption_level=conf.corruption_level)
+                conf.hidden_units,
+                sparse_level=conf.sparse_level,
+                sparse_penalty=conf.sparse_penalty,
+                consecutive_penalty=conf.consecutive_penalty,
+                batch_size=conf.batch_size,
+                learning_rate=conf.learning_rate,
+                epochs=conf.epochs,
+                corruption_level=conf.corruption_level)
 
     dataset_path = ('%s/*.%s' % (conf.dataset_dir, conf.dataset_ext)).replace('*..', '*.').replace('//', '/')
 
