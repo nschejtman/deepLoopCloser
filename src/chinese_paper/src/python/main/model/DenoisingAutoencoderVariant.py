@@ -31,7 +31,8 @@ class DA:
                  learning_rate: float = 0.1,
                  epochs: int = 100,
                  layer_n: int = 0,
-                 corruption_level: float = 0.3):
+                 corruption_level: float = 0.3,
+                 graph: tf.Graph = tf.Graph()):
 
         self._validate_params(input_shape, hidden_units, sparse_level, sparse_penalty, consecutive_penalty, batch_size, learning_rate,
                               epochs, layer_n, corruption_level)
@@ -48,19 +49,21 @@ class DA:
         self.layer_n = layer_n
 
         self._sess = None
+        self._graph = graph
 
         root_name = 'chinese_paper'
         script_path = os.path.abspath(__file__)
         self.train_path = script_path[:(script_path.find(root_name) + len(root_name))] + '/training'
 
         self._define_logger()
-        self._define_model_variables()
-        self._define_fitting_model()
-        self._define_transforming_model()
-        self._define_loss()
-        self._define_optimizer()
-        self._define_saver()
-        self._define_summaries()
+        with self._graph.as_default():
+            self._define_model_variables()
+            self._define_fitting_model()
+            self._define_transforming_model()
+            self._define_loss()
+            self._define_optimizer()
+            self._define_saver()
+            self._define_summaries()
 
     def _define_logger(self):
         self.logger = logging.getLogger()
@@ -161,16 +164,18 @@ class DA:
             Path(self.save_dir).mkdir(parents=True, exist_ok=True)
 
     def _load_or_init_session(self):
-        if len(os.listdir(self.save_dir)) > 0:
-            self._saver.restore(self._sess, tf.train.latest_checkpoint(self.save_dir))
-        else:
-            init_op = tf.global_variables_initializer()
-            self._sess.run(init_op)
+        with self._graph.as_default():
+            if len(os.listdir(self.save_dir)) > 0:
+                self._saver.restore(self._sess, tf.train.latest_checkpoint(self.save_dir))
+            else:
+                init_op = tf.global_variables_initializer()
+                self._sess.run(init_op)
 
     def _create_dataset(self, file_pattern: str):
-        generator = get_generator(file_pattern, self.input_shape)
-        dataset = tf.data.Dataset.from_generator(generator, tf.float64)
-        return dataset.batch(self.batch_size).prefetch(self.batch_size)
+        with self._graph.as_default():
+            generator = get_generator(file_pattern, self.input_shape)
+            dataset = tf.data.Dataset.from_generator(generator, tf.float64)
+            return dataset.batch(self.batch_size).prefetch(self.batch_size)
 
     def _corrupt_tensor(self, x: tf.Tensor, name: str = None):
         shape = np.array(x.get_shape().as_list())
@@ -195,41 +200,42 @@ class DA:
         return tf.multiply(tf_zeros_mask, x, name=name) + tf_ones_mask
 
     def fit(self, file_pattern: str):
-        dataset = self._create_dataset(file_pattern)
-        return self.fit_dataset(dataset)
+        with self._graph.as_default():
+            dataset = self._create_dataset(file_pattern)
+            return self.fit_dataset(dataset)
 
     def fit_dataset(self, dataset: tf.data.Dataset):
-        iterator = dataset.make_one_shot_iterator()
+        with self._graph.as_default():
+            iterator = dataset.make_one_shot_iterator()
+            with tf.Session() as self._sess:
+                batch_n = 0
+                while True:
+                    try:
+                        self._load_or_init_session()
 
-        with tf.Session() as self._sess:
-            batch_n = 0
-            while True:
-                try:
-                    self._load_or_init_session()
+                        batch = iterator.get_next()
+                        stack_batch_op = tf.stack(batch)
+                        stacked_batch = self._sess.run(stack_batch_op)
 
-                    batch = iterator.get_next()
-                    stack_batch_op = tf.stack(batch)
-                    stacked_batch = self._sess.run(stack_batch_op)
+                        # if batch size is different from the specified batch size the fitting model won't work due to mismatching shapes
+                        if len(stacked_batch) != self.batch_size:
+                            logging.warning("Ignored last batch because it was smaller than the specified batch size. To avoid this choose "
+                                            "a batch size that is a factor of the dataset size.")
+                            break
 
-                    # if batch size is different from the specified batch size the fitting model won't work due to mismatching shapes
-                    if len(stacked_batch) != self.batch_size:
-                        logging.warning("Ignored last batch because it was smaller than the specified batch size. To avoid this choose "
-                                        "a batch size that is a factor of the dataset size.")
+                        for step in range(self.epochs):
+                            self._sess.run(self.train_step, feed_dict={self._x_batch: stacked_batch})
+
+                            if step + 1 % 10 == 0:
+                                self._write_summaries(stacked_batch)
+                                self._saver.save(self._sess, self.save_file, global_step=self.global_step)
+
+                            self._log_progress(batch_n, step, stacked_batch)
+
+                        batch_n += 1
+
+                    except tf.errors.OutOfRangeError:
                         break
-
-                    for step in range(self.epochs):
-                        self._sess.run(self.train_step, feed_dict={self._x_batch: stacked_batch})
-
-                        if step + 1 % 10 == 0:
-                            self._write_summaries(stacked_batch)
-                            self._saver.save(self._sess, self.save_file, global_step=self.global_step)
-
-                        self._log_progress(batch_n, step, stacked_batch)
-
-                    batch_n += 1
-
-                except tf.errors.OutOfRangeError:
-                    break
 
     def _log_progress(self, batch_n, step, x_batch):
         progress_str = 'Batch: %d, Epoch: %d/%d, Loss: %s'
@@ -241,9 +247,10 @@ class DA:
         self._summary_writer.add_summary(summary_str)
 
     def transform(self, x):
-        with tf.Session() as self._sess:
-            self._load_or_init_session()
-            return self._sess.run(self._h_single, feed_dict={self._x_single: x})
+        with self._graph.as_default():
+            with tf.Session() as self._sess:
+                self._load_or_init_session()
+                return self._sess.run(self._h_single, feed_dict={self._x_single: x})
 
 
 def add_arguments(arg_parser):

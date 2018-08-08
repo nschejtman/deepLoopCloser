@@ -30,7 +30,8 @@ class SDA:
                  batch_size: int = 10,
                  learning_rate: float = 0.1,
                  epochs: int = 100,
-                 corruption_level: float = 0.3):
+                 corruption_level: float = 0.3,
+                 graph: tf.Graph = tf.Graph()):
         self._validate_params(input_shape, hidden_units, sparse_level, sparse_penalty, consecutive_penalty, batch_size, learning_rate,
                               epochs, corruption_level)
 
@@ -47,6 +48,8 @@ class SDA:
         root_name = 'chinese_paper'
         script_path = os.path.abspath(__file__)
         self.train_path = script_path[:(script_path.find(root_name) + len(root_name))] + '/training'
+
+        self._graph = graph
 
         self._define_logger()
         self._define_model()
@@ -85,26 +88,28 @@ class SDA:
 
             layer = DA(input_shape, hidden_units_n, sparse_level=self.sparse_level, sparse_penalty=self.sparse_penalty,
                        consecutive_penalty=self.consecutive_penalty, batch_size=self.batch_size, learning_rate=self.learning_rate,
-                       epochs=self.epochs, layer_n=i, corruption_level=self.corruption_level)
+                       epochs=self.epochs, layer_n=i, corruption_level=self.corruption_level, graph=self._graph)
 
             self._layers.append(layer)
 
     def _create_dataset(self, file_pattern: str):
-        generator = get_generator(file_pattern, self.input_shape)
-        dataset = tf.data.Dataset.from_generator(generator, tf.float64)
-        return dataset.prefetch(self.batch_size)
+        with self._graph.as_default():
+            generator = get_generator(file_pattern, self.input_shape)
+            dataset = tf.data.Dataset.from_generator(generator, tf.float64)
+            return dataset.prefetch(self.batch_size)
 
     def fit(self, file_pattern: str):
-        logging.info("Fitting Layer 0")
-        self._layers[0].fit(file_pattern)
-        dataset = self._create_dataset(file_pattern)
+        with self._graph.as_default():
+            logging.info("Fitting Layer 0")
+            self._layers[0].fit(file_pattern)
+            dataset = self._create_dataset(file_pattern)
 
-        for i, layer in enumerate(self._layers[1:]):
-            logging.info("Fitting Layer %d" % layer.layer_n)
-            print("SDA graph: %s" % str(tf.get_default_graph))
-            # dataset = dataset.map(lambda x: tf.py_func(self._my_fun, [x], tf.float64), num_parallel_calls=64)
-            dataset = dataset.map(lambda x: tf.py_func(self._layers[i - 1].transform, [x], tf.float64), num_parallel_calls=64)
-            layer.fit_dataset(dataset)
+            for i, layer in enumerate(self._layers[1:]):
+                logging.info("Fitting Layer %d" % layer.layer_n)
+                # print("SDA graph: %s" % str(tf.get_default_graph))
+                # dataset = dataset.map(lambda x: tf.py_func(self._my_fun, [x], tf.float64), num_parallel_calls=64)
+                dataset = dataset.map(lambda x: tf.py_func(self._layers[i - 1].transform, [x], tf.float64), num_parallel_calls=64)
+                layer.fit_dataset(dataset)
 
 
 def add_arguments(arg_parser):
