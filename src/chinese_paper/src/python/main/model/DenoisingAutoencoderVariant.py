@@ -174,8 +174,8 @@ class DA:
     def _create_dataset(self, file_pattern: str):
         with self._graph.as_default():
             generator = get_generator(file_pattern, self.input_shape)
-            dataset = tf.data.Dataset.from_generator(generator, tf.float64)
-            return dataset.batch(self.batch_size).prefetch(self.batch_size)
+            return tf.data.Dataset.from_generator(generator, tf.float64)
+            # return dataset.batch(self.batch_size).prefetch(self.batch_size)
 
     def _corrupt_tensor(self, x: tf.Tensor, name: str = None):
         shape = np.array(x.get_shape().as_list())
@@ -206,6 +206,7 @@ class DA:
 
     def fit_dataset(self, dataset: tf.data.Dataset):
         with self._graph.as_default():
+            dataset = dataset.batch(self.batch_size).prefetch(self.batch_size)
             iterator = dataset.make_one_shot_iterator()
             with tf.Session() as self._sess:
                 batch_n = 0

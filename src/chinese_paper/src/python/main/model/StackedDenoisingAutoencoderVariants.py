@@ -95,8 +95,8 @@ class SDA:
     def _create_dataset(self, file_pattern: str):
         with self._graph.as_default():
             generator = get_generator(file_pattern, self.input_shape)
-            dataset = tf.data.Dataset.from_generator(generator, tf.float64)
-            return dataset.prefetch(self.batch_size)
+            return tf.data.Dataset.from_generator(generator, tf.float64)
+
 
     def fit(self, file_pattern: str):
         with self._graph.as_default():
@@ -104,11 +104,11 @@ class SDA:
             self._layers[0].fit(file_pattern)
             dataset = self._create_dataset(file_pattern)
 
-            for i, layer in enumerate(self._layers[1:]):
+            for i in range(1, len(self._layers)):
+                layer = self._layers[i]
+                previous_layer = self._layers[i - 1]
                 logging.info("Fitting Layer %d" % layer.layer_n)
-                # print("SDA graph: %s" % str(tf.get_default_graph))
-                # dataset = dataset.map(lambda x: tf.py_func(self._my_fun, [x], tf.float64), num_parallel_calls=64)
-                dataset = dataset.map(lambda x: tf.py_func(self._layers[i - 1].transform, [x], tf.float64), num_parallel_calls=64)
+                dataset = dataset.map(lambda x: tf.py_func(previous_layer.transform, [x], tf.float64))
                 layer.fit_dataset(dataset)
 
 
