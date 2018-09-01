@@ -200,11 +200,13 @@ class DA:
         return tf.multiply(tf_zeros_mask, x, name=name) + tf_ones_mask
 
     def fit(self, file_pattern: str):
+        print("Layer %d: fit" % self.layer_n)
         with self._graph.as_default():
             dataset = self._create_dataset(file_pattern)
             return self.fit_dataset(dataset)
 
     def fit_dataset(self, dataset: tf.data.Dataset):
+        print("Layer %d: fit_dataset" % self.layer_n)
         with self._graph.as_default():
             dataset = dataset.batch(self.batch_size).prefetch(self.batch_size)
             iterator = dataset.make_one_shot_iterator()
@@ -239,15 +241,16 @@ class DA:
                         break
 
     def _log_progress(self, batch_n, step, x_batch):
-        progress_str = 'Batch: %d, Epoch: %d/%d, Loss: %s'
+        progress_str = 'Layer %d: Batch: %d, Epoch: %d/%d, Loss: %s'
         loss = self._sess.run(self._loss, feed_dict={self._x_batch: x_batch})
-        logging.info(progress_str % (batch_n, step + 1, self.epochs, loss))
+        logging.info(progress_str % (self.layer_n, batch_n, step + 1, self.epochs, loss))
 
     def _write_summaries(self, x_batch):
         summary_str = self._sess.run(self._summary_op, feed_dict={self._x_batch: x_batch})
         self._summary_writer.add_summary(summary_str)
 
     def transform(self, x):
+        logging.info("Layer %d: transform" % self.layer_n)
         with self._graph.as_default():
             with tf.Session() as self._sess:
                 self._load_or_init_session()
