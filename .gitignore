@@ -9,3 +9,4 @@ __pycache__
 src/chinese_paper/src/python/venv/bin src/chinese_paper/src/python/venv/include src/chinese_paper/src/python/venv/lib src/chinese_paper/src/python/venv/pip-selfcheck.json
 src/chinese_paper/src/python/venv/
 venv
+virtualenv
