@@ -1,4 +1,5 @@
 .idea/
+.DS_Store
 cmake-build-debug/
 build
 build/catkin build/catkin_generated build/CATKIN_IGNORE build/catkin_make.cache build/CMakeCache.txt build/CMakeFiles build/cmake_install.cmake build/CTestTestfile.cmake build/gtest build/Makefile build/perceptual_hash_loop_closer build/test_results
@@ -7,3 +8,4 @@ __pycache__
 .pytest_cache
 src/chinese_paper/src/python/venv/bin src/chinese_paper/src/python/venv/include src/chinese_paper/src/python/venv/lib src/chinese_paper/src/python/venv/pip-selfcheck.json
 src/chinese_paper/src/python/venv/
+venv
