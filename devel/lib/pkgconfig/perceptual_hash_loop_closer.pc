@@ -1,8 +1,0 @@
-prefix=/vagrant_data/catkin_ws/devel
-
-Name: perceptual_hash_loop_closer
-Description: Description of perceptual_hash_loop_closer
-Version: 0.0.0
-Cflags: 
-Libs: -L/vagrant_data/catkin_ws/devel/lib 
-Requires: 
