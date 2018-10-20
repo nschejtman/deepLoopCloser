@@ -1,2 +1,6 @@
 # deepLoopCloser
-ROS package used for loop closure detection in VSLAM applications using deep learning proposals.
+Loop closure detection neural networks for VSLAM systems. 
+
+## Installation
+1. `git clone https://github.com/nschejtman/deepLoopCloser.git`
+2. `sh setup.sh`
