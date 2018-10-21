@@ -9,7 +9,7 @@ pathlib2==2.3.2
 protobuf==3.6.0
 py-v8n==0.1.0a1
 six==1.11.0
-tensorboard>=1.11.0
-tensorflow-gpu>=1.11.0
+tensorboard>=1.8.0
+tensorflow-gpu>=1.8.0
 termcolor==1.1.0
 Werkzeug==0.14.1
