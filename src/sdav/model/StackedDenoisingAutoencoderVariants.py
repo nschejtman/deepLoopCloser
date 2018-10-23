@@ -40,6 +40,7 @@ class SDA:
         self._define_model()
 
     def _define_logger(self):
+        logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %H:%M:%S')
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.INFO)
 
