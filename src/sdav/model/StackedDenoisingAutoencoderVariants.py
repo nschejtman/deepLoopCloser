@@ -1,5 +1,4 @@
 import logging
-import os
 
 import tensorflow as tf
 from py_v8n import v8n
@@ -23,6 +22,8 @@ class SDA:
         self._validate_params(input_shape, hidden_units, sparse_level, sparse_penalty, consecutive_penalty, batch_size,
                               learning_rate,
                               epochs, corruption_level)
+        self._define_logger()
+        logging.info("Initializing SDAV")
 
         self.input_shape = input_shape
         self.hidden_units = hidden_units
@@ -36,7 +37,6 @@ class SDA:
 
         self._graph = graph
 
-        self._define_logger()
         self._define_model()
 
     def _define_logger(self):
@@ -84,14 +84,13 @@ class SDA:
             return tf.data.Dataset.from_generator(generator, tf.float64)
 
     def fit(self, file_pattern: str):
+        logging.info("Fit SDAV")
         with self._graph.as_default():
-            logging.info("Fitting Layer 0")
             self._layers[0].fit(file_pattern)
             dataset = self._create_dataset(file_pattern)
 
             for i in range(1, len(self._layers)):
                 layer = self._layers[i]
                 previous_layer = self._layers[i - 1]
-                logging.info("Fitting Layer %d" % layer.layer_n)
                 dataset = dataset.map(lambda x: tf.py_func(previous_layer.transform, [x], tf.float64))
                 layer.fit_dataset(dataset)

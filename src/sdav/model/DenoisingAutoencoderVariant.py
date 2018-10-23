@@ -24,6 +24,9 @@ class DA:
                  corruption_level: float = 0.3,
                  graph: tf.Graph = tf.Graph()):
 
+        self._define_logger()
+        logging.info('  Initializing Layer:%d' % layer_n)
+
         self._validate_params(input_shape, hidden_units, sparse_level, sparse_penalty, consecutive_penalty, batch_size,
                               learning_rate,
                               epochs, layer_n, corruption_level)
@@ -45,7 +48,6 @@ class DA:
         root_path = firstParentWithNamePath(os.path.abspath(__file__), 'deepLoopCloser')
         self.train_path = root_path + '/training/sdav'
 
-        self._define_logger()
         with self._graph.as_default():
             self._define_model_variables()
             self._define_fitting_model()
@@ -54,6 +56,8 @@ class DA:
             self._define_optimizer()
             self._define_saver()
             self._define_summaries()
+
+        logging.info('    Done initializing Layer:%d' % layer_n)
 
     def _define_logger(self):
         self.logger = logging.getLogger()
@@ -157,7 +161,7 @@ class DA:
             self._saver = tf.train.Saver(save_relative_paths=True)
             self.save_dir = '%s/checkpoints/layer_%d_' % (self.train_path, self.layer_n)
             self.save_file = '%s/checkpoint_file' % self.save_dir
-
+            logging.info('    Saving Layer:%d training output to %s' % (self.layer_n, self.save_file))
             Path(self.save_dir).mkdir(parents=True, exist_ok=True)
 
     def _load_or_init_session(self):
@@ -197,13 +201,12 @@ class DA:
         return tf.multiply(tf_zeros_mask, x, name=name) + tf_ones_mask
 
     def fit(self, file_pattern: str):
-        print("Layer %d: fit" % self.layer_n)
+        logging.info("  Layer:%d fit" % self.layer_n)
         with self._graph.as_default():
             dataset = self._create_dataset(file_pattern)
             return self.fit_dataset(dataset)
 
     def fit_dataset(self, dataset: tf.data.Dataset):
-        print("Layer %d: fit_dataset" % self.layer_n)
         with self._graph.as_default():
             dataset = dataset.batch(self.batch_size).prefetch(self.batch_size)
             iterator = dataset.make_one_shot_iterator()
@@ -239,7 +242,7 @@ class DA:
                         break
 
     def _log_progress(self, batch_n, step, x_batch):
-        progress_str = 'Layer %d: Batch: %d, Epoch: %d/%d, Loss: %s'
+        progress_str = '    Layer:%d Batch:%d fit, Epoch:%d/%d, Loss:%s'
         loss = self._sess.run(self._loss, feed_dict={self._x_batch: x_batch})
         logging.info(progress_str % (self.layer_n, batch_n, step + 1, self.epochs, loss))
 
@@ -247,8 +250,8 @@ class DA:
         summary_str = self._sess.run(self._summary_op, feed_dict={self._x_batch: x_batch})
         self._summary_writer.add_summary(summary_str)
 
-    def transform(self, x):
-        logging.info("Layer %d: transform" % self.layer_n)
+    def transform(self, x, batch_n: int = -1):
+        logging.info("  Layer %d: transform" % self.layer_n)
         with self._graph.as_default():
             with tf.Session() as self._sess:
                 self._load_or_init_session()
