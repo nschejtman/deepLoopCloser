@@ -251,18 +251,20 @@ class SDAV:
                         for step in range(self.epochs):
 
                             self._sess.run(self.train_steps[i], feed_dict={self._x0: stacked_batch})
-
-                            if (step + 1) % 25 == 0:
-                                logging.info('Writing summaries & checkpoints')
-                                self._write_summaries(stacked_batch)
-                                self._saver.save(self._sess, self.save_file, global_step=self.global_step)
-
                             self._log_progress(batch_n, step, stacked_batch, i)
 
                         batch_n += 1
 
+                        logging.info('Writing summaries')
+
+                        if (batch_n + 1) % 25 == 0:
+                            self._write_summaries(stacked_batch)
+
                     except tf.errors.OutOfRangeError:
                         break
+                        
+                logging.info('Saving trained params')
+                self._saver.save(self._sess, self.save_file, global_step=self.global_step)
 
     def _log_progress(self, batch_n, step, x_batch, layer_n):
         progress_str = '    Layer:%d Batch:%d fit, Epoch:%d/%d, Loss:%s'
