@@ -133,7 +133,7 @@ class SDAV:
         return tf.multiply(tf_zeros_mask, x, name=name) + tf_ones_mask
 
     def _define_fitting_model(self):
-        logging.info('Defining fitting model')
+        logging.info('Defining fitting network')
         batch_shape_0 = [self.batch_size, self.input_shape[0], self.input_shape[1]]
         flat_batch_shape_0 = [self.batch_size * self.input_shape[0], self.input_shape[1]]
 
@@ -196,7 +196,7 @@ class SDAV:
         self.losses.append(cd_0 + self.sparse_penalty * cs_0 + self.consecutive_penalty * cc_0)
 
     def _define_model_variables(self):
-        logging.info('Defining model variables')
+        logging.info('Defining network variables')
         self._w0_e = tf.Variable(
             tf.random_normal([self.input_shape[1], self.hidden_units[0]], dtype=tf.float64))
         self._b0_e = tf.Variable(tf.zeros([self.hidden_units[0]], dtype=tf.float64))

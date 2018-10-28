@@ -1,4 +1,4 @@
-from src.sdav.model.SDAV import SDAV
+from src.sdav.network.SDAV import SDAV
 
 model = SDAV()
 model.fit('datasets/outdoor_kennedylong/*.ppm')

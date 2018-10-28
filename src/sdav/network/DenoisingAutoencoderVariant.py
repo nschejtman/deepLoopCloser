@@ -100,7 +100,7 @@ class DA:
             self._b1 = tf.Variable(tf.zeros(self.input_shape[1], dtype=tf.float64), name='decoder_biases')
 
     def _define_fitting_model(self):
-        # Separate model for batch fitting
+        # Separate network for batch fitting
         with tf.name_scope('fitting'):
             batch_shape = [self.batch_size, self.input_shape[0], self.input_shape[1]]
             flat_batch_shape = [self.batch_size * self.input_shape[0], self.input_shape[1]]
@@ -220,7 +220,7 @@ class DA:
                         stack_batch_op = tf.stack(batch)
                         stacked_batch = self._sess.run(stack_batch_op)
 
-                        # if batch size is different from the specified batch size the fitting model won't work due to mismatching shapes
+                        # if batch size is different from the specified batch size the fitting network won't work due to mismatching shapes
                         if len(stacked_batch) != self.batch_size:
                             logging.warning(
                                 "Ignored last batch because it was smaller than the specified batch size. To avoid this choose "
@@ -283,11 +283,11 @@ def add_arguments(arg_parser):
 
 def main():
     # Get arguments
-    parser = ArgumentParser(description='Use this main file to train the model')
+    parser = ArgumentParser(description='Use this main file to train the network')
     add_arguments(parser)
     conf = parser.parse_args()
 
-    # Create model
+    # Create network
     model = DA(conf.input_shape,
                conf.hidden_units,
                sparse_level=conf.sparse_level,

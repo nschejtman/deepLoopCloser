@@ -3,7 +3,7 @@ import logging
 import tensorflow as tf
 from py_v8n import v8n
 from src.sdav.input.InputGenerator import get_generator
-from src.sdav.model.DenoisingAutoencoderVariant import DA
+from src.sdav.network.DenoisingAutoencoderVariant import DA
 
 
 class SDA:
