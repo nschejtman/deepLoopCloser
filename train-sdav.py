@@ -1,8 +1,9 @@
-from src.sdav.model.StackedDenoisingAutoencoderVariants import SDA
+from src.sdav.network.StackedDenoisingAutoencoderVariants import SDA
+from src.sdav.network.StackedDenoisingAutoencoderVariants import SDA
 from argparse import ArgumentParser
 
 # Get arguments
-parser = ArgumentParser(description='Use this main file to train the model')
+parser = ArgumentParser(description='Use this main file to train the network')
 # Positional arguments
 parser.add_argument('operation', choices=['train', 'transform'], help='Operation to perform')
 # Named arguments
@@ -27,7 +28,7 @@ parser.add_argument('--verbose', help='Verbosity level for operations', type=boo
 
 conf = parser.parse_args()
 
-# Create model
+# Create network
 model = SDA(conf.input_shape,
             conf.hidden_units,
             sparse_level=conf.sparse_level,

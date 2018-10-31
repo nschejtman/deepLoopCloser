@@ -178,6 +178,14 @@ class SDAV:
 
         self._define_loss(self._x4, self._h4, self._y4, 4)
 
+    def _define_transforming_model(self):
+        self._x0_single = tf.placeholder(tf.float64, shape=self.input_shape)
+        self._h0_single = tf.nn.sigmoid(self._x0_single @ self._w0_e + self._b0_e)
+        self._h1_single = tf.nn.sigmoid(self._h0_single @ self._w1_e + self._b1_e)
+        self._h2_single = tf.nn.sigmoid(self._h1_single @ self._w2_e + self._b2_e)
+        self._h3_single = tf.nn.sigmoid(self._h2_single @ self._w3_e + self._b3_e)
+        self._h4_single = tf.nn.sigmoid(self._h3_single @ self._w4_e + self._b4_e)
+
     def _define_loss(self, x, h, y, layer_n):
         logging.info('Defining loss for layer %d' % layer_n)
         cd_0 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=x, logits=y), name='cd_%d' % layer_n)
@@ -287,10 +295,17 @@ class SDAV:
                     except tf.errors.OutOfRangeError:
                         break
 
-                logging.info('Saving trained params to %s with global_step %s' % (self.checkpoint_file, self.global_step))
+                logging.info(
+                    'Saving trained params to %s with global_step %s' % (self.checkpoint_file, self.global_step))
                 self._saver.save(self._sess, self.checkpoint_file, global_step=self.global_step)
 
     def _log_progress(self, batch_n, step, x_batch, layer_n):
         progress_str = '    Layer:%d Batch:%d fit, Epoch:%d/%d, Loss:%s'
         loss = self._sess.run(self.losses[layer_n], feed_dict={self._x0: x_batch})
         logging.info(progress_str % (layer_n, batch_n, step + 1, self.epochs, loss))
+
+    def transform(self, frame):
+        with tf.Session() as self._sess:
+            self._load_or_init_session()
+
+            self._sess.run(self._h4_single, feed_dict={self._x0_single: frame})
