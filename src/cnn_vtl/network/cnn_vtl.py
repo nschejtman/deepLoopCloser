@@ -96,7 +96,7 @@ class CnnVtl:
         layers = [conv1, conv2, conv3, conv4, conv5]
         layer_sizes = np.array([279936, 173056, 55296, 55296, 36864])
 
-        vectorized_layers = list(map(lambda x: tf.reshape(x[1], [layer_sizes[x[0]]]), enumerate(layers)))
+        vectorized_layers = list(map(lambda tuple_: tf.reshape(tuple_[1], [layer_sizes[tuple_[0]]]), enumerate(layers)))
 
         # Merge descriptors
         d = tf.concat(vectorized_layers, axis=0)
@@ -130,7 +130,7 @@ class CnnVtl:
     @staticmethod
     def _get_pretrained_params_initializers():
         root_path = firstParentWithNamePath(os.path.abspath(__file__), 'deepLoopCloser')
-        layer_params = np.load(root_path + '/training/cnn_vtl/bvlc_alexnet.npy', encoding='bytes').item()
+        layer_params = np.load(root_path + '/training/cnn_vtl/npy/bvlc_alexnet.npy', encoding='bytes').item()
         skip_layers = ['fc6', 'fc7', 'fc8']
         params = {}
         for layer_name in layer_params:
