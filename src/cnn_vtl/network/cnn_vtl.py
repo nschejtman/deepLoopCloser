@@ -10,7 +10,7 @@ from src.utils.PathUtils import firstParentWithNamePath
 
 
 class CnnVtl:
-    def __init__(self, input_shape: list = (None, 224, 224, 3), batch_size: int = 10, compress_factor: float = 99.59):
+    def __init__(self, input_shape: list = (1, 224, 224, 3), batch_size: int = 10, compress_factor: float = 99.59):
         self.input_shape = input_shape
         self.batch_size = batch_size
         self.compress_factor = compress_factor
@@ -94,22 +94,29 @@ class CnnVtl:
 
         # Vectorize layers
         layers = [conv1, conv2, conv3, conv4, conv5]
-        layer_sizes = np.array([279936, 173056, 55296, 55296, 36864])
 
-        vectorized_layers = list(map(lambda tuple_: tf.reshape(tuple_[1], [layer_sizes[tuple_[0]]]), enumerate(layers)))
+        layer_sizes = list(map(lambda layer: np.prod(layer.shape.as_list()[1:]), layers))
+
+        def vectorize(idx, layer):
+            return tf.reshape(layer, [self.input_shape[0], layer_sizes[idx]])
+
+        vectorized_layers = list(map(lambda tup: vectorize(tup[0], tup[1]), enumerate(layers)))
 
         # Merge descriptors
-        d = tf.concat(vectorized_layers, axis=0)
+        d = tf.concat(vectorized_layers, axis=1)
 
         # Cast to 8 bit ints between [0, 255]
-        max_ = tf.reduce_max(d)
-        min_ = tf.reduce_min(d)
+        max_ = tf.reduce_max(d, axis=1)
+        min_ = tf.reduce_min(d, axis=1)
 
-        d_scaled = (d - min_) * (tf.constant(255, dtype=tf.float64) / (max_ - min_))
+        max_reshaped = tf.reshape(max_, [self.input_shape[0], 1])
+        min_reshaped = tf.reshape(min_, [self.input_shape[0], 1])
+
+        d_scaled = (d - min_reshaped) * (tf.constant(255, dtype=tf.float64) / (max_reshaped - min_reshaped))
         d_int8 = tf.cast(d_scaled, dtype=tf.int8)
 
         # Compress descriptor
-        mask = np.zeros((layer_sizes.sum()), dtype=bool)
+        mask = np.zeros((np.sum(layer_sizes)), dtype=bool)
 
         start = 0
         for i in layer_sizes:
@@ -118,7 +125,7 @@ class CnnVtl:
             start += i
             mask[true_indices] = True
 
-        self.y = tf.boolean_mask(d_int8, mask)
+        self.y = tf.boolean_mask(d_int8, mask, axis=1)
 
     def transform(self, x):
         with tf.Session() as sess:
