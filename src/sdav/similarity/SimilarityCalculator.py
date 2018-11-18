@@ -8,11 +8,8 @@ class SimilarityCalculator:
         self.sigma = sigma
         self.a = a
         self.b = b
-        self.sdav = SDAV()
 
-    def similarity_score(self, frame1, frame2):
-        h1 = self.sdav.transform(frame1)
-        h2 = self.sdav.transform(frame2)
+    def similarity_score(self, h1, h2):
         average_response = SimilarityCalculator._average_response(h1, h2)
         distinctive_score = self._distinctive_score(average_response)
         matched_features = SimilarityCalculator._match_features(h1, h2)
