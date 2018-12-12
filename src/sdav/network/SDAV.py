@@ -21,6 +21,7 @@ class SDAV:
 
         self._define_model_variables()
         self._define_fitting_model()
+        self._define_transforming_model()
         self._define_optimizer()
         self._define_saver()
         self._define_summaries()
@@ -308,4 +309,4 @@ class SDAV:
         with tf.Session() as self._sess:
             self._load_or_init_session()
 
-            self._sess.run(self._h4_single, feed_dict={self._x0_single: frame})
+            return self._sess.run(self._h4_single, feed_dict={self._x0_single: frame})

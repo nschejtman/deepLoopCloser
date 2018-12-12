@@ -11,7 +11,7 @@ This class parses image inputs according to the algorithm proposed in the paper 
 
 
 class CvInputParser:
-    def __init__(self, n_patches, patch_size):
+    def __init__(self, n_patches: int = 30, patch_size: int = 41):
         self.n_patches = n_patches
         self.patch_size = patch_size
 

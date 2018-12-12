@@ -1,4 +1,3 @@
-from src.sdav.network.SDAV import SDAV
 import numpy as np
 
 
@@ -18,8 +17,10 @@ class SimilarityCalculator:
 
     @staticmethod
     def _average_response(h1, h2):
-        stacked = np.stack([h1, h2], axis=1)
-        return np.average(stacked, axis=1)
+        x0 = h1.shape[0] + h2.shape[0]
+        x1 = h1.shape[1]
+        stacked = np.stack([h1, h2], axis=0).reshape([x0, x1])
+        return np.average(stacked, axis=0)
 
     def _distinctive_score(self, h):
         a = - ((h - self.mu) ** 2) / (2 * self.sigma ** 2)
@@ -38,7 +39,7 @@ class SimilarityCalculator:
     @staticmethod
     def _compute_weighted_distances(feature_matches, distinctive_score):
         def feature_match_weighted_distance(match):
-            wd = np.matmul(distinctive_score.transpose(), (match[0] - match[1]))
+            wd = np.matmul(distinctive_score, (match[0] - match[1]))
             return np.linalg.norm(wd)
 
         return list(map(feature_match_weighted_distance, feature_matches))
