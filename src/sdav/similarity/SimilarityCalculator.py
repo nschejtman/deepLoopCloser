@@ -2,25 +2,25 @@ import numpy as np
 
 
 class SimilarityCalculator:
-    def __init__(self, mu=0.5, sigma=0.2, a=10, b=-10):
+    def __init__(self, dataset: np.ndarray, mu=0.5, sigma=0.2, a=10, b=-10):
         self.mu = mu
         self.sigma = sigma
         self.a = a
         self.b = b
+        self.dataset = dataset
 
     def similarity_score(self, h1, h2):
-        average_response = SimilarityCalculator._average_response(h1, h2)
+        average_response = self._average_response(self.dataset)
         distinctive_score = self._distinctive_score(average_response)
         matched_features = SimilarityCalculator._match_features(h1, h2)
         weighted_distances = SimilarityCalculator._compute_weighted_distances(matched_features, distinctive_score)
         return self._calculate_similarity_from_distances(weighted_distances)
 
     @staticmethod
-    def _average_response(h1, h2):
-        x0 = h1.shape[0] + h2.shape[0]
-        x1 = h1.shape[1]
-        stacked = np.stack([h1, h2], axis=0).reshape([x0, x1])
-        return np.average(stacked, axis=0)
+    def _average_response(dataset):
+        x0 = dataset.shape[0] * dataset.shape[1]
+        x1 = dataset.shape[2]
+        return np.average(dataset.reshape(x0, x1), axis=0)
 
     def _distinctive_score(self, h):
         a = - ((h - self.mu) ** 2) / (2 * self.sigma ** 2)

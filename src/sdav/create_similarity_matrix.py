@@ -38,7 +38,7 @@ descriptors = list(map(lambda frame: network.transform(frame), tqdm(dataset)))
 
 logging.info("Calculating similarity")
 similarity_matrix = np.full([n_files, n_files], -1)
-calculator = SimilarityCalculator()
+calculator = SimilarityCalculator(np.array(descriptors))
 
 for i in tqdm(range(n_files)):
     for j in range(i + 1, n_files):
