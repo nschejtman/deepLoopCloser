@@ -9,8 +9,8 @@ from src.utils.PathUtils import firstParentWithNamePath
 
 
 class SDAV:
-    def __init__(self):
-        self._configure_logging()
+    def __init__(self, verbosity=logging.WARNING):
+        self._configure_logging(verbosity)
         logging.info('Initializing sdav')
 
         self._set_train_path()
@@ -25,7 +25,7 @@ class SDAV:
         self._define_optimizer()
         self._define_saver()
         self._define_summaries()
-        logging.info('Finished initializing sdav')
+        logging.info('Done initializing sdav')
 
     def _define_model_and_training_params(self):
         self.input_shape = [30, 1681]
@@ -104,12 +104,12 @@ class SDAV:
         summary_str = self._sess.run(self._summary_op, feed_dict={self._x0: x_batch})
         self._summary_writer.add_summary(summary_str)
 
-    def _configure_logging(self):
+    def _configure_logging(self, verbosity):
         logging.basicConfig(filename='deepLoopCloser.log', format='%(asctime)s %(message)s',
                             datefmt='%m/%d/%Y %H:%M:%S')
         self.logger = logging.getLogger()
         self.logger.addHandler(logging.StreamHandler())
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(verbosity)
 
     def _corrupt_tensor(self, x: tf.Tensor, name: str = None):
         shape = np.array(x.get_shape().as_list())
@@ -134,7 +134,6 @@ class SDAV:
         return tf.multiply(tf_zeros_mask, x, name=name) + tf_ones_mask
 
     def _define_fitting_model(self):
-        logging.info('Defining fitting network')
         batch_shape_0 = [self.batch_size, self.input_shape[0], self.input_shape[1]]
         flat_batch_shape_0 = [self.batch_size * self.input_shape[0], self.input_shape[1]]
 
@@ -188,7 +187,6 @@ class SDAV:
         self._h4_single = tf.nn.sigmoid(self._h3_single @ self._w4_e + self._b4_e)
 
     def _define_loss(self, x, h, y, layer_n):
-        logging.info('Defining loss for layer %d' % layer_n)
         cd_0 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=x, logits=y), name='cd_%d' % layer_n)
 
         cs_0 = tf.reduce_mean(tf.norm(h - self.sparse_level, axis=1, ord=1), name='cs_%d' % layer_n)
@@ -205,7 +203,6 @@ class SDAV:
         self.losses.append(cd_0 + self.sparse_penalty * cs_0 + self.consecutive_penalty * cc_0)
 
     def _define_model_variables(self):
-        logging.info('Defining network variables')
         self._w0_e = tf.Variable(
             tf.random_normal([self.input_shape[1], self.hidden_units[0]], dtype=tf.float64))
         self._b0_e = tf.Variable(tf.zeros([self.hidden_units[0]], dtype=tf.float64))
@@ -237,7 +234,6 @@ class SDAV:
         self._b4_d = tf.Variable(tf.zeros(self.hidden_units[3], dtype=tf.float64))
 
     def _create_dataset(self, file_pattern: str):
-        logging.info('Creating dataset')
         generator = get_generator(file_pattern, self.input_shape)
         return tf.data.Dataset.from_generator(generator, tf.float64)
 
@@ -246,13 +242,11 @@ class SDAV:
         return self.fit_dataset(dataset)
 
     def _define_optimizer(self):
-        logging.info('Defining optimizer')
         self.global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name='global_step')
         optimizer = tf.train.GradientDescentOptimizer(self.learning_rate)
         self.train_steps = list(map(lambda loss: optimizer.minimize(loss, global_step=self.global_step), self.losses))
 
     def _define_saver(self):
-        logging.info('Defining saver')
         self._saver = tf.train.Saver(save_relative_paths=True)
         self.checkpoint_file = '%s/checkpoint_file' % self.checkpoints_path
 
