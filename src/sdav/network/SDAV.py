@@ -305,8 +305,18 @@ class SDAV:
         loss = self._sess.run(self.losses[layer_n], feed_dict={self._x0: x_batch})
         logging.info(progress_str % (layer_n, batch_n, step + 1, self.epochs, loss))
 
-    def transform(self, frame):
+    def transform_single(self, frame):
         with tf.Session() as self._sess:
             self._load_or_init_session()
-
             return self._sess.run(self._h4_single, feed_dict={self._x0_single: frame})
+
+    def transform_all(self, file_pattern: str):
+        dataset = self._create_dataset(file_pattern)
+        iterator = dataset.make_initializable_iterator()
+        with tf.Session() as self._sess:
+            self._sess.run(iterator.initializer)
+            self._load_or_init_session()
+            batch = iterator.get_next()
+            stack_dataset_op = tf.stack(batch)
+            stacked_dataset = self._sess.run(stack_dataset_op)
+            return self._sess.run(self._h4, feed_dict={self._x0: stacked_dataset})
