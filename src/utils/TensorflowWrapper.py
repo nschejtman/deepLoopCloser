@@ -1,18 +1,22 @@
 import tensorflow as tf
+import warnings
 
 
 class TensorWrapper:
     def __init__(self, x):
-        self.x = x
+        if isinstance(x, TensorWrapper):
+            self.x = x.to_tf()
+        else:
+            self.x = x
 
     def flat_batch(self):
         shape = self.shape()
         return self.reshape([shape[0] * shape[1], shape[2]])
 
     def batch(self, batch_size):
-        batch_size = parameter_guard(batch_size)
+        batch_size = TensorWrapper(batch_size)
         shape = self.shape()
-        return self.reshape([batch_size, tf.cast(shape[0] / batch_size, tf.int32), shape[1]])
+        return self.reshape([batch_size, (shape[0] / batch_size).to(tf.int32), shape[1]])
 
     def batch_size(self):
         if self.dimensions() == 3:  # TODO replace with rank
@@ -75,6 +79,16 @@ class TensorWrapper:
     def shuffle(self):
         return TensorWrapper(tf.random.shuffle(self.x))
 
+    def round(self):
+        return TensorWrapper(tf.round(self.x))
+
+    def to(self, dtype):
+        return TensorWrapper(tf.cast(self.x, dtype))
+
+    def __truediv__(self, y):
+        y = parameter_guard(y)
+        return TensorWrapper(self.x / y)
+
     def __getitem__(self, item):
         item = parameter_guard(item)
         return TensorWrapper(self.x[item])
@@ -86,7 +100,6 @@ class TensorWrapper:
     def __rmul__(self, y):
         y = parameter_guard(y)
         return TensorWrapper(y * self.x)
-
 
     def __add__(self, y):
         y = parameter_guard(y)
@@ -103,12 +116,13 @@ class TensorWrapper:
 def parameter_guard(y):
     if isinstance(y, TensorWrapper):
         return y.to_tf()
+    elif isinstance(y, list):
+        return list(map(parameter_guard, y))
     else:
         return y
 
 
 def placeholder(dtype, shape):
-    shape = parameter_guard(shape)
     return TensorWrapper(tf.placeholder(dtype, shape=shape))
 
 
@@ -131,11 +145,11 @@ def ones(shape, dtype=tf.float64):
 
 
 def random_mask(shape, zeros_percentage, dtype=tf.float64):
-    shape = parameter_guard(shape)
-    zeros_percentage = parameter_guard(zeros_percentage)
+    shape = TensorWrapper(shape)
+    zeros_percentage = TensorWrapper(zeros_percentage)
 
     parameters = shape[0] * shape[1]
-    n_zeros = parameters * zeros_percentage
+    n_zeros = (parameters.to(tf.float64) * zeros_percentage).round().to(tf.int32)
     n_ones = parameters - n_zeros
 
-    return ones(n_ones, dtype=dtype).concat(zeros(n_zeros, dtype=dtype)).shuffle()
+    return ones(n_ones, dtype=dtype).concat(zeros(n_zeros, dtype=dtype)).shuffle().reshape(shape)
