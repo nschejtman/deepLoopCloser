@@ -3,7 +3,7 @@ import numpy as np
 import os
 from pathlib import Path
 import logging
-
+import src.utils.TensorflowWrapper as tw
 from src.sdav.input.InputGenerator import get_generator
 from src.utils.PathUtils import firstParentWithNamePath
 
@@ -14,40 +14,37 @@ class SDAV:
         logging.info('Initializing sdav')
 
         self._set_train_path()
-        self._define_model_and_training_params()
+        self._define_params()
 
         self.losses = []
         self._sess = None
 
         self._define_model_variables()
-        self._define_fitting_model()
-        self._define_transforming_model()
+        self._define_model()
         self._define_optimizer()
         self._define_saver()
         self._define_summaries()
         logging.info('Finished initializing sdav')
 
-    def _define_model_and_training_params(self):
+    def _define_params(self):
         self.input_shape = [30, 1681]
         self.hidden_units = [2500, 2500, 2500, 2500, 2500]
-        self.batch_size = 10
+        self.default_batch_size = 10
         self.corruption_level = 0.3
         self.sparse_level: float = 0.05
         self.sparse_penalty: float = 1.0
         self.consecutive_penalty: float = 0.2
-        self.batch_size: int = 10
         self.learning_rate: float = 0.1
         self.epochs: int = 100
         self.corruption_level: float = 0.3
         logging.info('Parameter configuration: {\n' +
                      '\tinput_shape: %s,\n' % self.input_shape +
                      '\thidden_units: %s,\n' % self.hidden_units +
-                     '\tbatch_size: %s,\n' % self.batch_size +
+                     '\default_batch_size: %s,\n' % self.default_batch_size +
                      '\tcorruption_level: %s,\n' % self.corruption_level +
                      '\tsparse_level: %s,\n' % self.sparse_level +
                      '\tsparse_penalty: %s,\n' % self.sparse_penalty +
                      '\tconsecutive_penalty: %s,\n' % self.consecutive_penalty +
-                     '\tbatch_size: %s,\n' % self.batch_size +
                      '\tlearning_rate: %s,\n' % self.learning_rate +
                      '\tepochs: %s,\n' % self.epochs +
                      '\tcorruption_level: %s,\n' % self.corruption_level +
@@ -111,93 +108,78 @@ class SDAV:
         self.logger.addHandler(logging.StreamHandler())
         self.logger.setLevel(logging.INFO)
 
-    def _corrupt_tensor(self, x: tf.Tensor, name: str = None):
-        shape = np.array(x.get_shape().as_list())
-        n_elems = shape.prod()
+    @staticmethod
+    def _get_corruption_mask(shape, corruption_level):
+        n_elements = shape[0] * shape[1]
+        n_corrupted_elements = round(n_elements * corruption_level)
+        mask = np.ones(n_elements)
+        mask[:n_corrupted_elements] = 0
+        np.random.shuffle(mask)
+        return mask.reshape(shape)
 
-        # Create the corruption mask
-        zeros_mask = np.ones(n_elems)
-        zeros_mask[:int(n_elems * self.corruption_level)] = 0
-        np.random.shuffle(zeros_mask)
+    def _define_model(self):
+        logging.info('Defining network')
+        # noinspection PyTypeChecker
+        input_shape = [None] + self.input_shape
+        self._corruption_level = tf.placeholder(tf.float64, shape=[])
 
-        ones_mask = (zeros_mask - 1) * (-1)
-        random_mask = np.random.rand(n_elems) < 0.5
-        ones_mask = ones_mask.astype(int) & random_mask.astype(int)
+        # Layer 0
+        x0 = tw.placeholder(tf.float64, input_shape)
+        batch_size = x0.batch_size()
+        h0 = x0.corrupt(self._corruption_level).matmul(self._w0_e).add(self._b0_e).sigmoid()
+        y0 = h0.matmul(self._w0_d).add(self._b0_d).sigmoid()
+        self._define_loss_for_layer(x0.to_tf(), h0.to_tf(), y0.to_tf(), 0, batch_size.to_tf())
 
-        zeros_mask = zeros_mask.reshape(shape)
-        ones_mask = ones_mask.reshape(shape)
+        # Layer 1
+        l1_shape = [batch_size] + self.get_layer_input_shape(1)
+        x1 = h0.reshape(l1_shape).corrupt(self._corruption_level).flat_batch()
+        h1 = x1.matmul(self._w1_e).add(self._b1_e).sigmoid()
+        y1 = h1.matmul(self._w1_d).add(self._b1_d).sigmoid()
+        self._define_loss_for_layer(x1.to_tf(), h1.to_tf(), y1.to_tf(), 1, batch_size.to_tf())
 
-        # TF operations
-        tf_zeros_mask = tf.constant(zeros_mask.astype(float))
-        tf_ones_mask = tf.constant(ones_mask.astype(float))
+        # Layer 2
+        l2_shape = [batch_size] + self.get_layer_input_shape(2)
+        x2 = h1.reshape(l2_shape).corrupt(self._corruption_level).flat_batch()
+        h2 = x2.matmul(self._w2_e).add(self._b2_e).sigmoid()
+        y2 = h2.matmul(self._w2_d).add(self._b2_d).sigmoid()
+        self._define_loss_for_layer(x2.to_tf(), h2.to_tf(), y2.to_tf(), 2, batch_size.to_tf())
 
-        return tf.multiply(tf_zeros_mask, x, name=name) + tf_ones_mask
+        # Layer 3
+        l3_shape = [batch_size] + self.get_layer_input_shape(3)
+        x3 = h2.reshape(l3_shape).corrupt(self._corruption_level).flat_batch()
+        h3 = x3.matmul(self._w3_e).add(self._b3_e).sigmoid()
+        y3 = h3.matmul(self._w3_d).add(self._b3_d).sigmoid()
+        self._define_loss_for_layer(x3.to_tf(), h3.to_tf(), y3.to_tf(), 3, batch_size.to_tf())
 
-    def _define_fitting_model(self):
-        logging.info('Defining fitting network')
-        batch_shape_0 = [self.batch_size, self.input_shape[0], self.input_shape[1]]
-        flat_batch_shape_0 = [self.batch_size * self.input_shape[0], self.input_shape[1]]
+        # Layer 4
+        l4_shape = [batch_size] + self.get_layer_input_shape(4)
+        x4 = h3.reshape(l4_shape).corrupt(self._corruption_level).flat_batch()
+        h4 = x4.matmul(self._w4_e).add(self._b4_e).sigmoid()
+        y4 = h4.matmul(self._w4_d).add(self._b4_d).sigmoid()
+        self._define_loss_for_layer(x4.to_tf(), h4.to_tf(), y4.to_tf(), 4, batch_size.to_tf())
 
-        self._x0 = tf.placeholder(tf.float64, shape=batch_shape_0)
-        self._x0_flat = tf.reshape(self._x0, shape=flat_batch_shape_0)
-        self._x0_corrupted = self._corrupt_tensor(self._x0_flat)
+        # Expose input & output tensors
+        self._x0 = x0.to_tf()
+        self._h4 = h4.to_tf()
 
-        self._h0 = tf.nn.sigmoid(self._x0_corrupted @ self._w0_e + self._b0_e)
-        self._y0 = tf.nn.sigmoid(self._h0 @ self._w0_d + self._b0_d)
+    def get_layer_input_shape(self, layer_n):
+        if layer_n == 0:
+            return self.input_shape
+        else:
+            return [self.input_shape[0], self.hidden_units[layer_n - 1]]
 
-        self._define_loss(self._x0, self._h0, self._y0, 0)
-
-        batch_shape_1 = [self.batch_size, self.input_shape[0], self.hidden_units[0]]
-        self._x1 = tf.reshape(self._h0, shape=batch_shape_1)
-        self._x1_corrupted = self._corrupt_tensor(self._h0)
-        self._h1 = tf.nn.sigmoid(self._x1_corrupted @ self._w1_e + self._b1_e)
-        self._y1 = tf.nn.sigmoid(self._h1 @ self._w1_d + self._b1_d)
-
-        self._define_loss(self._x1, self._h1, self._y1, 1)
-
-        batch_shape_2 = [self.batch_size, self.input_shape[0], self.hidden_units[1]]
-        self._x2 = tf.reshape(self._h1, shape=batch_shape_2)
-        self._x2_corrupted = self._corrupt_tensor(self._h1)
-        self._h2 = tf.nn.sigmoid(self._x2_corrupted @ self._w2_e + self._b2_e)
-        self._y2 = tf.nn.sigmoid(self._h2 @ self._w2_d + self._b2_d)
-
-        self._define_loss(self._x2, self._h2, self._y2, 2)
-
-        batch_shape_3 = [self.batch_size, self.input_shape[0], self.hidden_units[2]]
-        self._x3 = tf.reshape(self._h2, shape=batch_shape_3)
-        self._x3_corrupted = self._corrupt_tensor(self._h2)
-        self._h3 = tf.nn.sigmoid(self._x3_corrupted @ self._w3_e + self._b3_e)
-        self._y3 = tf.nn.sigmoid(self._h3 @ self._w3_d + self._b3_d)
-
-        self._define_loss(self._x3, self._h3, self._y3, 3)
-
-        batch_shape_4 = [self.batch_size, self.input_shape[0], self.hidden_units[3]]
-        self._x4 = tf.reshape(self._h3, shape=batch_shape_4)
-        self._x4_corrupted = self._corrupt_tensor(self._h3)
-        self._h4 = tf.nn.sigmoid(self._x4_corrupted @ self._w4_e + self._b4_e)
-        self._y4 = tf.nn.sigmoid(self._h4 @ self._w4_d + self._b4_d)
-
-        self._define_loss(self._x4, self._h4, self._y4, 4)
-
-    def _define_transforming_model(self):
-        self._x0_single = tf.placeholder(tf.float64, shape=self.input_shape)
-        self._h0_single = tf.nn.sigmoid(self._x0_single @ self._w0_e + self._b0_e)
-        self._h1_single = tf.nn.sigmoid(self._h0_single @ self._w1_e + self._b1_e)
-        self._h2_single = tf.nn.sigmoid(self._h1_single @ self._w2_e + self._b2_e)
-        self._h3_single = tf.nn.sigmoid(self._h2_single @ self._w3_e + self._b3_e)
-        self._h4_single = tf.nn.sigmoid(self._h3_single @ self._w4_e + self._b4_e)
-
-    def _define_loss(self, x, h, y, layer_n):
+    def _define_loss_for_layer(self, x, h, y, layer_n, batch_size):
         logging.info('Defining loss for layer %d' % layer_n)
         cd_0 = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=x, logits=y), name='cd_%d' % layer_n)
 
         cs_0 = tf.reduce_mean(tf.norm(h - self.sparse_level, axis=1, ord=1), name='cs_%d' % layer_n)
 
-        hidden_response_batch = tf.reshape(h, [self.batch_size, self.input_shape[0], self.hidden_units[layer_n]])
-        frames = tf.slice(hidden_response_batch, [0, 0, 0], [self.batch_size - 1, self.input_shape[0],
+        hidden_response_batch = tf.reshape(h,
+                                           [batch_size, self.input_shape[0], self.hidden_units[layer_n]])
+        frames = tf.slice(hidden_response_batch, [0, 0, 0], [batch_size - 1, self.input_shape[0],
                                                              self.hidden_units[0]])
         frames_next = tf.slice(hidden_response_batch, [1, 0, 0],
-                               [self.batch_size - 1, self.input_shape[0], self.hidden_units[layer_n]])
+                               [batch_size - 1, self.input_shape[0], self.hidden_units[layer_n]])
         cc_0 = tf.reduce_mean(tf.norm(frames - frames_next, axis=[1, 2], ord='euclidean'), axis=0,
                               name='cc_%d' % layer_n)
 
@@ -236,14 +218,10 @@ class SDAV:
         self._w4_d = tf.transpose(self._w4_e)
         self._b4_d = tf.Variable(tf.zeros(self.hidden_units[3], dtype=tf.float64))
 
-    def _create_dataset(self, file_pattern: str):
+    def get_dataset(self, file_pattern: str):
         logging.info('Creating dataset')
         generator = get_generator(file_pattern, self.input_shape)
         return tf.data.Dataset.from_generator(generator, tf.float64)
-
-    def fit(self, file_pattern: str):
-        dataset = self._create_dataset(file_pattern)
-        return self.fit_dataset(dataset)
 
     def _define_optimizer(self):
         logging.info('Defining optimizer')
@@ -267,7 +245,7 @@ class SDAV:
             self._sess.run(init_op)
 
     def fit_dataset(self, dataset: tf.data.Dataset):
-        dataset = dataset.batch(self.batch_size).prefetch(self.batch_size)
+        dataset = dataset.batch(self.default_batch_size).prefetch(self.default_batch_size)
         iterator = dataset.make_initializable_iterator()
         with tf.Session() as self._sess:
             for i in range(5):
@@ -280,9 +258,6 @@ class SDAV:
                         batch = iterator.get_next()
                         stack_batch_op = tf.stack(batch)
                         stacked_batch = self._sess.run(stack_batch_op)
-
-                        if len(stacked_batch) != self.batch_size:
-                            break
 
                         for step in range(self.epochs):
                             self._sess.run(self.train_steps[i], feed_dict={self._x0: stacked_batch})
@@ -300,18 +275,40 @@ class SDAV:
                     'Saving trained params to %s with global_step %s' % (self.checkpoint_file, self.global_step))
                 self._saver.save(self._sess, self.checkpoint_file, global_step=self.global_step)
 
+    def fit(self, x):
+        with tf.Session() as self._sess:
+            self._load_or_init_session()
+
+            feed_dict = {
+                self._x0: x,
+                self._corruption_level: self.corruption_level
+            }
+
+            for i in range(5):
+                for step in range(self.epochs):
+                    self._sess.run(self.train_steps[i], feed_dict=feed_dict)
+
+    def get_layers_input_shapes(self):
+        return list(map(self.get_layer_input_shape, range(1, 6)))
+
+    def transform(self, x):
+        with tf.Session() as self._sess:
+            self._load_or_init_session()
+
+            feed_dict = {
+                self._x0: x,
+                self._corruption_level: 0
+            }
+
+            return self._sess.run(self._h4, feed_dict=feed_dict)
+
     def _log_progress(self, batch_n, step, x_batch, layer_n):
         progress_str = '    Layer:%d Batch:%d fit, Epoch:%d/%d, Loss:%s'
         loss = self._sess.run(self.losses[layer_n], feed_dict={self._x0: x_batch})
         logging.info(progress_str % (layer_n, batch_n, step + 1, self.epochs, loss))
 
-    def transform_single(self, frame):
-        with tf.Session() as self._sess:
-            self._load_or_init_session()
-            return self._sess.run(self._h4_single, feed_dict={self._x0_single: frame})
-
-    def transform_all(self, file_pattern: str):
-        dataset = self._create_dataset(file_pattern)
+    def transform_dataset(self, file_pattern: str):
+        dataset = self.get_dataset(file_pattern)
         iterator = dataset.make_initializable_iterator()
         with tf.Session() as self._sess:
             self._sess.run(iterator.initializer)
