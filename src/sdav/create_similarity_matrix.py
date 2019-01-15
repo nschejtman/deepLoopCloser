@@ -18,25 +18,14 @@ warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 # Create dataset
-dataset_path = '/Users/nschejtman/projects/deepLoopCloser/datasets/outdoor_kennedylong'
-files = os.listdir(dataset_path)
-files.sort()
-n_files = len(files)
-
-# Parse dataset
-parser = CvInputParser()
-logging.info("Parsing dataset")
-dataset = list(map(lambda file: parser.parse_from_path(dataset_path + "/" + file), tqdm(files)))
-
-
-# Convert with network
-logging.info("Creating network")
 network = SDAV()
 
 logging.info("Transforming parsed dataset into descriptors")
-descriptors = list(map(lambda frame: network.transform(frame), tqdm(dataset)))
+dataset_path = "/Users/nschejtman/projects/deepLoopCloser/datasets/test"
+descriptors = network.transform_all("%s/*" % dataset_path)
 
 logging.info("Calculating similarity")
+n_files = len(os.listdir(dataset_path))
 similarity_matrix = np.full([n_files, n_files], -1)
 calculator = SimilarityCalculator(np.array(descriptors))
 
