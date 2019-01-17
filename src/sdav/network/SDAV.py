@@ -29,7 +29,6 @@ class SDAV:
         self.input_shape = [30, 1681]
         self.hidden_units = [2500, 2500, 2500, 2500, 2500]
         self.default_batch_size = 10
-        self.corruption_level = 0.3
         self.sparse_level: float = 0.05
         self.sparse_penalty: float = 1.0
         self.consecutive_penalty: float = 0.2
@@ -254,7 +253,11 @@ class SDAV:
                         stacked_batch = self._sess.run(stack_batch_op)
 
                         for step in range(self.epochs):
-                            self._sess.run(self.train_steps[i], feed_dict={self._x0: stacked_batch})
+                            feed_dict = {
+                                self._x0: stacked_batch,
+                                self._corruption_level: self.corruption_level
+                            }
+                            self._sess.run(self.train_steps[i], feed_dict=feed_dict)
                             self._log_progress(batch_n, step, stacked_batch, i)
 
                         batch_n += 1
@@ -298,7 +301,7 @@ class SDAV:
 
     def _log_progress(self, batch_n, step, x_batch, layer_n):
         progress_str = '    Layer:%d Batch:%d fit, Epoch:%d/%d, Loss:%s'
-        loss = self._sess.run(self.losses[layer_n], feed_dict={self._x0: x_batch})
+        loss = self._sess.run(self.losses[layer_n], feed_dict={self._x0: x_batch, self._corruption_level: self.corruption_level})
         logging.info(progress_str % (layer_n, batch_n, step + 1, self.epochs, loss))
 
     def transform_dataset(self, file_pattern: str):
