@@ -96,7 +96,7 @@ class SDAV:
 
     def _write_summaries(self, x_batch):
         logging.info('Writing summaries')
-        summary_str = self._sess.run(self._summary_op, feed_dict={self._x0: x_batch})
+        summary_str = self._sess.run(self._summary_op, feed_dict={self._x0: x_batch, self._corruption_level: self.corruption_level})
         self._summary_writer.add_summary(summary_str)
 
     def _configure_logging(self, verbosity):
