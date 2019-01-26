@@ -1,7 +1,8 @@
+import logging
 import math
 from functools import partial
 from glob import glob
-import logging
+
 from pathlib2 import Path
 
 from src.sdav.input.CvInputParser import CvInputParser as Parser

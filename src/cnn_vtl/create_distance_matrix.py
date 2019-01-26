@@ -1,10 +1,12 @@
+import logging
+import os
+
+import cv2
+import numpy as np
+from tqdm import tqdm
+
 from src.cnn_vtl.network.cnn_vtl import CnnVtl
 from src.cnn_vtl.similarity.DistanceCalculator import DistanceCalculator
-import numpy as np
-import os
-import cv2
-from tqdm import tqdm
-import logging
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -37,4 +39,3 @@ logging.info('Creating distance matrix')
 
 distance_img = 255 - distance_matrix / distance_matrix.max() * 255
 cv2.imwrite("/Users/nschejtman/projects/deepLoopCloser/src/cnn_vtl/distance.png", distance_img)
-

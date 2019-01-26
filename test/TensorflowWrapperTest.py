@@ -1,7 +1,9 @@
-import numpy as np
-import src.utils.TensorflowWrapper as tw
-import tensorflow as tf
 import sys
+
+import numpy as np
+import tensorflow as tf
+
+import src.utils.TensorflowWrapper as tw
 
 sys.path.insert(0, '/Users/nschejtman/projects/deepLoopCloser')
 
@@ -17,4 +19,3 @@ def test_example():
         actual = sess.run(y)
 
     assert np.array_equal(expected, actual)
-

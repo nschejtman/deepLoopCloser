@@ -1,8 +1,10 @@
-import tensorflow as tf
-import numpy as np
+import logging
 import os
 from pathlib import Path
-import logging
+
+import numpy as np
+import tensorflow as tf
+
 import src.utils.TensorflowWrapper as tw
 from src.sdav.input.InputGenerator import get_generator
 from src.utils.PathUtils import firstParentWithNamePath

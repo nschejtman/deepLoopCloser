@@ -1,6 +1,6 @@
-from src.sdav.network.StackedDenoisingAutoencoderVariants import SDA
-from src.sdav.network.StackedDenoisingAutoencoderVariants import SDA
 from argparse import ArgumentParser
+
+from src.sdav.network.StackedDenoisingAutoencoderVariants import SDA
 
 # Get arguments
 parser = ArgumentParser(description='Use this main file to train the network')

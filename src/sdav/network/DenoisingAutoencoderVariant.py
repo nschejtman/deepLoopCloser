@@ -2,6 +2,7 @@ import logging
 import os
 from argparse import ArgumentParser
 from pathlib import Path
+
 import numpy as np
 import tensorflow as tf
 from py_v8n import v8n

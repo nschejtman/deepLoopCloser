@@ -5,6 +5,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
+
 """
 This class parses image inputs according to the algorithm proposed in the paper using OpenCV 3.4.1
 """

@@ -1,6 +1,7 @@
+import numpy as np
+
 from src.cnn_vtl.network.cnn_vtl import CnnVtl
 from src.cnn_vtl.similarity.DistanceCalculator import DistanceCalculator
-import numpy as np
 
 network = CnnVtl()
 shape = network.input_shape

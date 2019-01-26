@@ -1,13 +1,15 @@
-from src.sdav.similarity.SimilarityCalculator import SimilarityCalculator
-from src.sdav.network.SDAV import SDAV
-from src.sdav.input.CvInputParser import CvInputParser
-import cv2
+import logging
 import os
+import sys
+import warnings
+
+import cv2
 import numpy as np
 from tqdm import tqdm
-import logging
-import warnings
-import sys
+
+from src.sdav.input.CvInputParser import CvInputParser
+from src.sdav.network.SDAV import SDAV
+from src.sdav.similarity.SimilarityCalculator import SimilarityCalculator
 
 sys.path.insert(0, '/Users/nschejtman/projects/deepLoopCloser')
 

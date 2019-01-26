@@ -1,5 +1,6 @@
-import tensorflow as tf
 import warnings
+
+import tensorflow as tf
 
 
 class TensorWrapper:
